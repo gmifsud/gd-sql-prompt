@@ -35,6 +35,8 @@ public sealed class CompletionContextTests
     [InlineData("SELECT a FROM t ORDER BY |", CompletionClause.OrderBy)]
     [InlineData("UPDATE t SET |", CompletionClause.SetList)]
     [InlineData("UPDATE |", CompletionClause.TableReference)]
+    [InlineData("DELETE |\nFROM [dbo].[T] as t WHERE t.Id = 1", CompletionClause.TableReference)]
+    [InlineData("INSERT | INTO t (a) VALUES (1)", CompletionClause.TableReference)]
     [InlineData("INSERT INTO t (|", CompletionClause.InsertColumns)]
     [InlineData("INSERT INTO t (a) VALUES (|", CompletionClause.Values)]
     [InlineData("DELETE FROM t WHERE |", CompletionClause.Where)]

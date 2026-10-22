@@ -211,13 +211,14 @@ public static class CompletionContextResolver
         if (isDml)
         {
             // The target region opens after UPDATE / DELETE [FROM] / INSERT [INTO] / MERGE [INTO], even before a target is typed.
-            var head = scope.Children
+            // Every head keyword opens it, so a caret between DELETE and FROM is a table position too.
+            var headKeywords = scope.Children
                 .TakeWhile(c => c is SyntaxToken || c.Kind is SyntaxKind.WithClause or SyntaxKind.TopClause)
                 .OfType<SyntaxToken>()
-                .LastOrDefault(t => t.Kind == SyntaxKind.KeywordToken);
-            if (head is not null)
+                .Where(t => t.Kind == SyntaxKind.KeywordToken);
+            foreach (var keyword in headKeywords)
             {
-                markers.Add((head.Span.End, CompletionClause.TableReference));
+                markers.Add((keyword.Span.End, CompletionClause.TableReference));
             }
         }
 
