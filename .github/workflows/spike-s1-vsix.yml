@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'spikes/S1.SsmsHost/**'
+      - 'src/**'
       - '.github/workflows/spike-s1-vsix.yml'
       - 'Directory.Packages.props'
   workflow_dispatch:
@@ -44,7 +45,10 @@ jobs:
             $manifest = Read-Entry ($zip.Entries | Where-Object Name -eq 'extension.vsixmanifest')
             if ($manifest -notmatch 'Microsoft.VisualStudio.MefComponent') { throw 'manifest: MEF component asset missing' }
             if ($manifest -notmatch 'Microsoft.VisualStudio.Ssms') { throw 'manifest: SSMS installation target missing' }
-            'VSIX verified: pkgdef (menus, auto-load), MEF component, SSMS target.'
+            foreach ($required in 'server/sqlwc-lsp.exe', 'server/sqlwc-lsp.dll', 'server/sqlwc-lsp.runtimeconfig.json', 'server/StreamJsonRpc.dll') {
+              if (-not ($zip.Entries | Where-Object { $_.FullName.Replace('\','/') -eq $required })) { throw "engine file missing from VSIX: $required" }
+            }
+            'VSIX verified: pkgdef (menus, auto-load), MEF component, SSMS target, engine under server/.'
           } finally { $zip.Dispose() }
       - uses: actions/upload-artifact@v4
         with:

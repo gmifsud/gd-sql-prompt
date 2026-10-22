@@ -18,6 +18,7 @@
   <Folder Name="/tests/">
     <Project Path="tests/SqlCompanion.Cli.Tests/SqlCompanion.Cli.Tests.csproj" />
     <Project Path="tests/SqlCompanion.Engine.Tests/SqlCompanion.Engine.Tests.csproj" />
+    <Project Path="tests/SqlCompanion.S1.EngineConnection.Tests/SqlCompanion.S1.EngineConnection.Tests.csproj" />
     <Project Path="tests/SqlCompanion.Server.Lsp.Tests/SqlCompanion.Server.Lsp.Tests.csproj" />
   </Folder>
 </Solution>

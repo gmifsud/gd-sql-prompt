@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Exercises the SSMS adapter's engine client (spikes/S1.SsmsHost/Engine, compiled for .NET Framework inside SSMS)
+    against the real sqlwc-lsp process, so protocol, restart and resync behaviour is verified on every CI run.
+  -->
+  <PropertyGroup>
+    <!-- Linked spike code targets .NET Framework too; keep its analyzer findings as warnings here. -->
+    <NoWarn>$(NoWarn);CA1001;CA1031;CA1063;CA1816;CA2000;CA2007;CA2008;CA1849;CA1510;CA1513;CA1859;CA1305;CA1062;CA5392;CA1822;CA1852;CA2016;CA1837;SYSLIB1054</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\..\spikes\S1.SsmsHost\Engine\*.cs" LinkBase="Engine" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SqlCompanion.Server.Lsp\SqlCompanion.Server.Lsp.csproj" />
+  </ItemGroup>
+</Project>

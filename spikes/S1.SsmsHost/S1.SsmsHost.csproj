@@ -46,6 +46,24 @@
   </ItemGroup>
 
   <!--
+    Step 2: ship the .NET 10 engine (sqlwc-lsp) inside the VSIX under server\. SSMS runs .NET Framework 4.8, so the
+    engine runs out of process; framework-dependent publish needs the .NET 10 runtime on the machine.
+  -->
+  <PropertyGroup>
+    <EngineProject>$(MSBuildThisFileDirectory)..\..\src\SqlCompanion.Server.Lsp\SqlCompanion.Server.Lsp.csproj</EngineProject>
+    <EnginePublishDir>$(MSBuildThisFileDirectory)obj\engine\</EnginePublishDir>
+  </PropertyGroup>
+  <Target Name="PublishEngine" BeforeTargets="BeforeBuild" Condition="'$(DesignTimeBuild)' != 'true'">
+    <Exec Command="dotnet publish &quot;$(EngineProject)&quot; -c Release -r win-x64 --self-contained false -o &quot;$(EnginePublishDir)&quot; -p:GenerateDocumentationFile=false --nologo" />
+    <ItemGroup>
+      <Content Include="$(EnginePublishDir)**\*" Exclude="$(EnginePublishDir)**\*.pdb">
+        <IncludeInVSIX>true</IncludeInVSIX>
+        <VSIXSubPath>server\%(RecursiveDir)</VSIXSubPath>
+      </Content>
+    </ItemGroup>
+  </Target>
+
+  <!--
     VSIX packaging (pkgdef, VSCT, .vsix container) lives in Microsoft.VsSDK.targets. Microsoft.VSSDK.BuildTools
     points VSToolsPath at its own copy but, as in classic projects, the import is the project's job and must
     come after the SDK targets — hence explicit Sdk.props/Sdk.targets imports instead of <Project Sdk="…">.

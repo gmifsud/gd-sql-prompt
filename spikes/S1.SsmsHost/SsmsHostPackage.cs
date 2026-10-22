@@ -56,6 +56,17 @@ public sealed class SsmsHostPackage : AsyncPackage
         }
     }
 
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing && EngineHost.IsCreated)
+        {
+            // Polite shutdown; the job object kills the engine anyway if SSMS exits abnormally.
+            EngineHost.Engine.Dispose();
+        }
+
+        base.Dispose(disposing);
+    }
+
     private async System.Threading.Tasks.Task<string> DescribeHostAsync()
     {
         await JoinableTaskFactory.SwitchToMainThreadAsync();
@@ -93,9 +104,14 @@ public sealed class SsmsHostPackage : AsyncPackage
             ? "  (none yet: open a query window, type, then run this command again)"
             : string.Join(Environment.NewLine, SpikeLog.ContentTypes.OrderByDescending(kv => kv.Value).Select(kv => $"  {kv.Key}  x{kv.Value}"));
 
+        var engine = EngineHost.IsCreated
+            ? EngineHost.Engine.Status
+            : "not started yet (open a query window)";
+
         var summary =
             $"Host: {_hostDescription}{Environment.NewLine}{Environment.NewLine}" +
             $"Editor content types seen:{Environment.NewLine}{contentTypes}{Environment.NewLine}{Environment.NewLine}" +
+            $"Engine: {engine}{Environment.NewLine}Engine path: {EngineHost.ServerPath}{Environment.NewLine}{Environment.NewLine}" +
             $"Full log: {SpikeLog.FilePath}";
 
         SpikeLog.Info("Diagnostics command invoked." + Environment.NewLine + summary);
