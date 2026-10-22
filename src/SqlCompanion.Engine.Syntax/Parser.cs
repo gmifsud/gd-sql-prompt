@@ -249,6 +249,13 @@ internal sealed class Parser
     private bool IsStatementStart(int index)
     {
         var token = TokenAt(index);
+
+        // `label:` — a single colon never follows an identifier inside an expression (`::` is its own token).
+        if (token.Kind == SyntaxKind.IdentifierToken && TokenAt(index + 1).Kind == SyntaxKind.ColonToken)
+        {
+            return true;
+        }
+
         if (IsWord(token, "THROW"))
         {
             // Non-reserved: a statement only when followed by its arguments or a terminator (never valid in an expression).
@@ -280,9 +287,12 @@ internal sealed class Parser
             return false;
         }
 
-        if (previous?.Kind == SyntaxKind.CommaToken && word is "SELECT" or "INSERT" or "UPDATE" or "DELETE" or "EXECUTE" or "EXEC" or "ALTER" or "CREATE")
+        // GRANT SELECT, INSERT … — only inside permission statements; elsewhere `SELECT a,` ⏎ `SELECT …`
+        // is an unfinished list followed by a new statement.
+        if (previous?.Kind == SyntaxKind.CommaToken && _statementHead is "GRANT" or "DENY" or "REVOKE"
+            && word is "SELECT" or "INSERT" or "UPDATE" or "DELETE" or "EXECUTE" or "EXEC" or "ALTER" or "CREATE")
         {
-            return false; // GRANT SELECT, INSERT …; FOR INSERT, UPDATE …
+            return false;
         }
 
         // Foreign-key referential actions: ON DELETE CASCADE, ON UPDATE NO ACTION, ON DELETE SET NULL.
@@ -511,6 +521,10 @@ internal sealed class Parser
                 Finish();
                 return;
             case "THROW":
+                ParseSimpleStatement(SyntaxKind.SimpleStatement);
+                return;
+            case "GRANT" or "DENY" or "REVOKE":
+                _statementHead = word;
                 ParseSimpleStatement(SyntaxKind.SimpleStatement);
                 return;
         }

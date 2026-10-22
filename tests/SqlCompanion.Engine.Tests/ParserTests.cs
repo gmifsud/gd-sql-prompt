@@ -85,6 +85,13 @@ public sealed class ParserTests
     }
 
     [Fact]
+    public void Label_AfterUnterminatedStatement_IsItsOwnStatement()
+    {
+        var batch = SyntaxTree.Parse("SET @x = 1\nErrorHandler:\n    RETURN 1").Root.ChildNodes().Single(n => n.Kind == SyntaxKind.Batch);
+        Assert.Equal([SyntaxKind.SetStatement, SyntaxKind.LabelStatement, SyntaxKind.SimpleStatement], batch.ChildNodes().Select(n => n.Kind));
+    }
+
+    [Fact]
     public void Throw_IsTheThenStatementOfIf()
     {
         var statement = SyntaxTree.Parse("IF OBJECT_ID(N't') IS NULL\n    THROW 51000, 'missing', 1;").Root

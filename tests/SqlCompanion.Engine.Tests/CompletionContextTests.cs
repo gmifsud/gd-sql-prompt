@@ -47,6 +47,35 @@ public sealed class CompletionContextTests
         Assert.Equal(expected, Resolve(markedText).Clause);
 
     [Fact]
+    public void EmptySchemaPart_IsKeptPositionally()
+    {
+        var source = Assert.Single(Resolve("SELECT b.| FROM msdb..backupset b").Sources);
+        Assert.Equal(("b", "name:msdb..backupset"), (source.ExposedName, source.Descriptor));
+    }
+
+    [Fact]
+    public void PartialWordThatIsAKeyword_IsTreatedAsTheWordBeingTyped()
+    {
+        var context = Resolve("SELECT @UserId = Use|\n    FROM dbo.aspnet_Users WHERE LoweredUserName = @u");
+        Assert.Equal(CompletionClause.SelectList, context.Clause);
+        Assert.Equal(["aspnet_users"], context.Sources.Select(s => s.ExposedName));
+    }
+
+    [Theory]
+    [InlineData("SELECT|* FROM t", CompletionClause.SelectList)]
+    [InlineData("SELECT a FROM t WHERE a IN|(1, 2)", CompletionClause.Where)]
+    public void CompleteKeywordAtCaret_IsNotTreatedAsPartialWord(string markedText, CompletionClause expected) =>
+        Assert.Equal(expected, Resolve(markedText).Clause);
+
+    [Fact]
+    public void TrailingCommaBeforeNextSelect_DoesNotMergeQueries()
+    {
+        var context = Resolve("SELECT a,\n    |\n\nSELECT COUNT(*) FROM #PageIndex");
+        Assert.Equal(CompletionClause.SelectList, context.Clause);
+        Assert.Empty(context.Sources);
+    }
+
+    [Fact]
     public void Subquery_IsItsOwnScope()
     {
         var context = Resolve("SELECT a FROM t WHERE a IN (SELECT b FROM u WHERE |)");

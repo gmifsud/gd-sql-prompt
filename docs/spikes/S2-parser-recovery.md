@@ -101,6 +101,8 @@ Each run fixed root causes found in the mismatch log. Harness corrections are li
 |   | Clause-tail cut ends at a keyword of the **same** scope (nested-scope keywords produced unbalanced, unrealistic text); `FOR XML` exclusion starts at `FOR` (ScriptDom's fragment starts at `PATH`) | harness | | | | | |
 | 7 | An unclosed rightmost group (`VALUES (` ⏎ `,0` ⏎ `▌`) keeps the caret in scope | resolver | 99.9 | 99.6 | 99.3 | 98.5 | 100.0 / 99.9 |
 
+| 8 | Private held-out corpus (34 scripts, run locally): `db..table` kept positionally (was read as schema `db`); `label:` after an unterminated statement; a half-typed word that is a keyword (`= Use▌`) where an operand is expected; a trailing comma no longer suppresses the next `SELECT` outside GRANT/DENY/REVOKE | resolver, parser | 100.0 | 99.8 | 99.4 | 99.0 | 100.0 / 99.9 |
+
 Run 6's clause-tail gain is partly due to the harness correction; the parser changes in the same run are covered by unit tests in `ParserTests`.
 
 ## Held-out check: templated scripts (`--placeholders`)

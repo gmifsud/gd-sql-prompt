@@ -77,6 +77,16 @@ public static class CompletionContextResolver
     public static CompletionContext Resolve(SyntaxTree tree, int position)
     {
         ArgumentNullException.ThrowIfNull(tree);
+
+        // A half-typed word can collide with a keyword: `SELECT @Id = Use▌` is the start of UserId, not a USE
+        // statement. When a keyword ending at the caret sits where an operand is expected and has split the
+        // statement, re-parse with it as a same-length identifier (offsets unchanged).
+        if (KeywordSplittingStatementAt(tree.Root, position) is { } keyword)
+        {
+            var text = string.Concat(tree.Text.AsSpan(0, keyword.Position), new string('_', keyword.Text.Length), tree.Text.AsSpan(keyword.Span.End));
+            tree = SyntaxTree.Parse(text);
+        }
+
         var scope = FindInnermostScope(tree.Root, position, NextTokenStarts(tree.Root));
         if (scope is null)
         {
@@ -92,6 +102,30 @@ public static class CompletionContextResolver
         };
 
         return new CompletionContext(clause, sources, scope);
+    }
+
+    private static SyntaxToken? KeywordSplittingStatementAt(SyntaxNode root, int position)
+    {
+        SyntaxToken? previous = null;
+        foreach (var token in root.DescendantTokens())
+        {
+            if (token.Kind == SyntaxKind.KeywordToken && token.Span.End == position && token.Span.Length > 0)
+            {
+                var operandExpected = previous is not null && IsContinuation(previous);
+                var startsStatement = root.DescendantNodes().Any(n =>
+                    ReferenceEquals(n.FirstToken, token) && n.Kind.ToString().EndsWith("Statement", StringComparison.Ordinal));
+                return operandExpected && startsStatement ? token : null;
+            }
+
+            if (token.Span.Start > position)
+            {
+                return null;
+            }
+
+            previous = token;
+        }
+
+        return null;
     }
 
     /// <summary>Maps each token's position to the position of the token that follows it.</summary>
@@ -368,13 +402,32 @@ public static class CompletionContextResolver
         }
     }
 
-    private static List<string> NameParts(SyntaxNode multipartName) =>
-    [
-        .. multipartName.ChildTokens()
-            .Where(t => t.Kind != SyntaxKind.DotToken)
-            .Select(t => Normalize(t.Text))
-            .Where(p => p.Length > 0),
-    ];
+    /// <summary>
+    /// Positional name parts. Empty parts are kept: <c>msdb..backupset</c> is database <c>msdb</c>, default
+    /// schema, table <c>backupset</c> — not schema <c>msdb</c>. A trailing dot while typing adds no part.
+    /// </summary>
+    private static List<string> NameParts(SyntaxNode multipartName)
+    {
+        var parts = new List<string> { string.Empty };
+        foreach (var token in multipartName.ChildTokens())
+        {
+            if (token.Kind == SyntaxKind.DotToken)
+            {
+                parts.Add(string.Empty);
+            }
+            else
+            {
+                parts[^1] = Normalize(token.Text);
+            }
+        }
+
+        if (parts.Count > 1 && parts[^1].Length == 0)
+        {
+            parts.RemoveAt(parts.Count - 1);
+        }
+
+        return parts.Any(p => p.Length > 0) ? parts : [];
+    }
 
     /// <summary>Removes identifier/string delimiters, unescapes doubled delimiters and lower-cases.</summary>
     public static string Normalize(string text)
