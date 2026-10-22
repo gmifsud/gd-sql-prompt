@@ -120,11 +120,24 @@ Files ScriptDom rejected never produced reference answers, so they played no par
 
 Reproduce: `dotnet run -c Release --project spikes/S2.ParserRecovery -- tests/Corpus/external artifacts/s2-placeholders --placeholders`.
 
+## Held-out check: private corpus
+
+34 private production scripts (DBA and application SQL; 637 k characters), run locally with `--placeholders` so no SQL left the developer's machine. 33 were accepted by ScriptDom.
+
+| Run | Intact | Partial word | Clause tail | Statement tail | Statements R / P |
+|---|---:|---:|---:|---:|---|
+| First run — held out | 95.4 % | 97.1 % | 95.3 % | 97.2 % | 98.2 / 100.0 % |
+| After iteration 8 — **no longer held out** | 100.0 % | 100.0 % | 99.9 % | 99.2 % | 100.0 / 100.0 % |
+
+- The first run is the unbiased figure: on unseen production SQL the parser met the 95 % target, narrowly. Clause detection was 99.2–100 %; the shortfall was in-scope sources.
+- Four defects found (iteration 8) were absent or rare in the public corpus. The most consequential, `db..table` read as schema `db`, would have made the Phase 2 binder resolve the wrong object.
+- After the fixes the same corpus confirms the defects are gone; it is not independent evidence. A fresh batch is needed to re-measure unseen accuracy.
+
 ## Residual errors
 
 | Class | Where | Notes |
 |---|---|---|
-| Caret on a fresh line after a complete-looking token with the statement truncated | StatementTail, SelectList/Values | Genuinely ambiguous: the next line may start a new statement. A future heuristic could use indentation. |
+| Caret on a fresh line after a complete-looking token with the statement truncated | StatementTail, SelectList/Values | Genuinely ambiguous: the next line may start a new statement. Common with leading-comma column lists (`,[Col]` ⏎ `▌`). A future heuristic could use indentation. |
 | Dynamic SQL in strings | SelectList | Text inside literals is opaque by design. |
 | Rare grammar (graph `MATCH`, `EXTERNAL` objects, `::` scoped names, `END CONVERSATION`) | Boundaries | 59 extra / 3 missed starts in 75 k; handled as opaque statements. |
 
