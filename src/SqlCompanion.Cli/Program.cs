@@ -52,9 +52,9 @@ var analyzeCommand = new Command(
 analyzeCommand.SetAction(async (parseResult, cancellationToken) =>
 {
     var inputs = InputFiles.Expand(parseResult.GetValue(analyzeFiles)!, Environment.CurrentDirectory);
-    foreach (var pattern in inputs.Unmatched)
+    foreach (var input in inputs.Unmatched)
     {
-        await Console.Error.WriteLineAsync($"sqlwc: no files match '{pattern}'.").ConfigureAwait(false);
+        await Console.Error.WriteLineAsync($"sqlwc: '{input.Argument}': {input.Reason}.").ConfigureAwait(false);
     }
 
     if (inputs.Unmatched.Count > 0)

@@ -48,7 +48,23 @@ public sealed class InputFilesTests : IDisposable
     {
         var result = Expand(argument);
         Assert.Empty(result.Files);
-        Assert.Equal([argument], result.Unmatched);
+        Assert.Equal([argument], result.Unmatched.Select(u => u.Argument));
+    }
+
+    [Theory]
+    [InlineData("typo/sub/**/*.sql")]
+    [InlineData("typo/sub/a.sql")]
+    public void MissingFolder_IsNamedAtTheFirstMissingSegment(string argument)
+    {
+        var reason = Assert.Single(Expand(argument).Unmatched).Reason;
+        Assert.Equal($"folder '{Path.Combine(_root, "typo")}' does not exist", reason);
+    }
+
+    [Fact]
+    public void PatternInExistingFolder_ReportsThePatternAndFolder()
+    {
+        var reason = Assert.Single(Expand("sub/*.nothing").Unmatched).Reason;
+        Assert.Equal($"no files match '*.nothing' in folder '{Path.Combine(_root, "sub")}'", reason);
     }
 
     public void Dispose() => Directory.Delete(_root, recursive: true);
