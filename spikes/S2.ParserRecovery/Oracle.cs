@@ -32,16 +32,23 @@ internal sealed class Oracle
 
     public Dictionary<int, string> StatementTypes { get; } = [];
 
-    public static Oracle? TryBuild(string text, out int errorCount)
+    /// <param name="text">Complete script.</param>
+    /// <param name="rejection">When ScriptDom rejects the script: error count and the first error with its position.</param>
+    public static Oracle? TryBuild(string text, out string? rejection)
     {
         var parser = new TSql170Parser(initialQuotedIdentifiers: true);
         using var reader = new StringReader(text);
         var fragment = parser.Parse(reader, out var errors);
-        errorCount = errors.Count;
         if (errors.Count > 0 || fragment is null)
         {
+            var first = errors.FirstOrDefault();
+            rejection = first is null
+                ? "no fragment produced"
+                : $"{errors.Count} error(s); first at ({first.Line},{first.Column}) {first.Number}: {first.Message}";
             return null;
         }
+
+        rejection = null;
 
         var oracle = new Oracle();
         fragment.Accept(new Visitor(oracle));

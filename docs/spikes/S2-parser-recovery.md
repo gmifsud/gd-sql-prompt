@@ -103,6 +103,21 @@ Each run fixed root causes found in the mismatch log. Harness corrections are li
 
 Run 6's clause-tail gain is partly due to the harness correction; the parser changes in the same run are covered by unit tests in `ParserTests`.
 
+## Held-out check: templated scripts (`--placeholders`)
+
+Files ScriptDom rejected never produced reference answers, so they played no part in tuning. With `--placeholders`, the harness rewrites template syntax **in ScriptDom's copy only** (same length, so positions stay aligned); our parser still reads the original text. That turned 214 previously rejected files into an untouched test set:
+
+| Newly checkable files | Files | Intact | Partial word | Clause tail | Statement tail | Statements R / P |
+|---|---:|---:|---:|---:|---:|---|
+| Ordinary SQL with `{name}` / `$(name)` / `:setvar` | 12 | 100.0 % | 100.0 % | 99.7 % | 98.1 % | 99.3 / 99.1 % |
+| SSMS template files (`<name, type, default>`) | 202 | 83.8 % | 87.1 % | 83.9 % | 89.3 % | 99.6 / 95.8 % |
+
+- **Held-out ordinary SQL** matches the tuned figures (small sample: about 1,150 carets).
+- **SSMS template parameters are a missing feature, not a regression.** Our lexer reads `<name, type, default>` as operators and commas, so a parameter in a name position (`FROM <db, sysname, x>.dbo.T`) breaks the table source. The parser has no SQLCMD mode either: a `:setvar` line becomes an opaque statement.
+- Implication for Phase 1: recognise placeholder syntaxes (`{name}`, `$(name)`, SSMS template parameters; configurable per project) as a single operand token, and treat SQLCMD directive lines as trivia.
+
+Reproduce: `dotnet run -c Release --project spikes/S2.ParserRecovery -- tests/Corpus/external artifacts/s2-placeholders --placeholders`.
+
 ## Residual errors
 
 | Class | Where | Notes |
@@ -116,7 +131,7 @@ Run 6's clause-tail gain is partly due to the harness correction; the parser cha
 - **Shared definitions.** Oracle and resolver implement the same notion of clause regions and innermost-scope sources; the metric measures syntactic agreement, not completion quality. Correlated outer scopes are deliberately out of scope for now.
 - **Synthetic edits.** The four states approximate typing; real sessions also include insertions mid-line, auto-closed brackets and quoted identifiers (excluded from PartialWord because an unterminated `[` legitimately swallows the rest of the document).
 - **Corpus bias.** Library and sample code is cleaner than ad-hoc scripts; 27 % of files were not oracle-checkable (mostly SQLCMD mode).
-- **Iteration on the evaluation set.** Fixes were driven by this corpus; a held-out corpus (e.g. the user's own scripts) should confirm the figures before Phase 2 exits.
+- **Iteration on the evaluation set.** Fixes were driven by this corpus. The held-out check above agrees on ordinary SQL but is small (12 files); a larger held-out corpus (e.g. the user's own scripts, run with `--placeholders`) should confirm the figures before Phase 2 exits.
 
 ## Implications
 

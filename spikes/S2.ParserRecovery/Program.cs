@@ -7,17 +7,22 @@ using SqlCompanion.Engine.Syntax;
 using SqlCompanion.Spikes.S2;
 
 // Spike S2 — completion-context recovery of the tolerant parser, measured against ScriptDom.
-// Usage: dotnet run -c Release --project spikes/S2.ParserRecovery -- <corpus-dir> [out-dir] [samples-per-file]
+// Usage: dotnet run -c Release --project spikes/S2.ParserRecovery -- <corpus-dir> [out-dir] [samples-per-file] [--placeholders]
+//   --placeholders  rewrite {name}, $(name) and SQLCMD directive lines (same length) before ScriptDom parses a
+//                   file, so templated scripts can be checked. Our parser always reads the original text.
 
-if (args.Length < 1)
+var normalisePlaceholders = args.Contains("--placeholders", StringComparer.OrdinalIgnoreCase);
+var positional = args.Where(a => !a.StartsWith("--", StringComparison.Ordinal)).ToArray();
+if (positional.Length < 1)
 {
-    Console.Error.WriteLine("usage: S2.ParserRecovery <corpus-dir> [out-dir] [samples-per-file]");
+    Console.Error.WriteLine("usage: S2.ParserRecovery <corpus-dir> [out-dir] [samples-per-file] [--placeholders]");
     return 2;
 }
 
-var corpusDir = Path.GetFullPath(args[0]);
-var outDir = Path.GetFullPath(args.Length > 1 ? args[1] : "artifacts/s2");
-var samplesPerFile = args.Length > 2 ? int.Parse(args[2], CultureInfo.InvariantCulture) : 40;
+Console.OutputEncoding = Encoding.UTF8;
+var corpusDir = Path.GetFullPath(positional[0]);
+var outDir = Path.GetFullPath(positional.Length > 1 ? positional[1] : "artifacts/s2");
+var samplesPerFile = positional.Length > 2 ? int.Parse(positional[2], CultureInfo.InvariantCulture) : 40;
 const int MaxSampledFileBytes = 256 * 1024;
 const int MaxRecordedMismatches = 2_000;
 Directory.CreateDirectory(outDir);
@@ -58,11 +63,19 @@ foreach (var file in files)
     }
 
     stopwatch.Restart();
-    var oracle = Oracle.TryBuild(text, out var oracleErrors);
+    var oracleText = text;
+    if (normalisePlaceholders)
+    {
+        oracleText = Placeholders.Normalise(text, out var placeholders);
+        tally.PlaceholdersNormalised += placeholders;
+    }
+
+    var oracle = Oracle.TryBuild(oracleText, out var rejection);
     oracleParseTime += stopwatch.Elapsed;
     if (oracle is null)
     {
         tally.OracleRejected++;
+        tally.Rejections.Add($"{relative}: {rejection}");
         continue;
     }
 
@@ -111,6 +124,7 @@ var report = tally.Render(ourParseTime, oracleParseTime, totalChars);
 File.WriteAllText(Path.Combine(outDir, "report.md"), report);
 File.WriteAllLines(Path.Combine(outDir, "mismatches.jsonl"), mismatches.Select(m => JsonSerializer.Serialize(m)));
 File.WriteAllLines(Path.Combine(outDir, "statement-boundaries.log"), tally.BoundaryLog);
+File.WriteAllLines(Path.Combine(outDir, "oracle-rejections.log"), tally.Rejections);
 Console.WriteLine(report);
 return tally.Crashes == 0 && tally.LossyTrees == 0 ? 0 : 1;
 
@@ -334,6 +348,8 @@ internal sealed class Tally
 
     public int SkippedLarge { get; set; }
 
+    public int PlaceholdersNormalised { get; set; }
+
     public int OracleStatements { get; set; }
 
     public int OurStatements { get; set; }
@@ -345,6 +361,9 @@ internal sealed class Tally
     public Counter ExtraStatementHeads { get; } = [];
 
     public List<string> BoundaryLog { get; } = [];
+
+    /// <summary>Why ScriptDom rejected each excluded file (first error), so exclusions can be explained.</summary>
+    public List<string> Rejections { get; } = [];
 
     public void Record(Perturbation perturbation, Outcome outcome)
     {
@@ -373,14 +392,29 @@ internal sealed class Tally
         sb.AppendLine($"| Parser crashes | {Crashes} |");
         sb.AppendLine($"| Lossy trees (round-trip failures) | {LossyTrees} |");
         sb.AppendLine($"| Accepted by ScriptDom (oracle) | {OracleAccepted} |");
-        sb.AppendLine($"| Rejected by ScriptDom (excluded from context metrics) | {OracleRejected} |");
+        sb.AppendLine($"| Rejected by ScriptDom (excluded from context metrics; reasons in oracle-rejections.log) | {OracleRejected} |");
         sb.AppendLine($"| Too large to sample (> 256 KB) | {SkippedLarge} |");
+        sb.AppendLine($"| Placeholders rewritten for ScriptDom (--placeholders) | {PlaceholdersNormalised} |");
         sb.AppendLine($"| Characters parsed | {chars:N0} |");
         sb.AppendLine($"| Our parse time (all files) | {ours.TotalMilliseconds:N0} ms |");
         sb.AppendLine($"| ScriptDom parse time (all files) | {oracle.TotalMilliseconds:N0} ms |");
         sb.AppendLine();
         sb.AppendLine("## Completion context");
         sb.AppendLine();
+        if (_byPerturbation.Count == 0)
+        {
+            sb.AppendLine("No samples: no file was accepted by ScriptDom, so there is no reference to compare against.");
+            sb.AppendLine();
+            sb.AppendLine("First rejection reasons:");
+            sb.AppendLine();
+            foreach (var rejection in Rejections.Take(10))
+            {
+                sb.AppendLine($"- {rejection}");
+            }
+
+            return sb.ToString();
+        }
+
         sb.AppendLine("| Edit state | Samples | Context correct | Clause correct | Sources correct (where compared) |");
         sb.AppendLine("|---|---:|---:|---:|---:|");
         foreach (var (perturbation, v) in _byPerturbation.OrderBy(kv => kv.Key))

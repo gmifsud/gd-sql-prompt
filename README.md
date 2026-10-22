@@ -77,6 +77,9 @@ dotnet run -c Release --project bench/SqlCompanion.Benchmarks -- --filter '*'
 # Spike S2 harness (fetches ~1,400 public scripts at pinned commits)
 tools/fetch-corpus.sh
 dotnet run -c Release --project spikes/S2.ParserRecovery -- tests/Corpus/external artifacts/s2
+
+# Your own scripts; --placeholders lets ScriptDom check templated SQL ({name}, $(name), <name, type, default>)
+dotnet run -c Release --project spikes/S2.ParserRecovery -- D:\my-scripts artifacts/s2-local --placeholders
 ```
 
 `sqlwc` exit codes: `0` no errors · `1` SQL errors reported · `2` invalid input (a path or pattern matched no file, or a file could not be read).
