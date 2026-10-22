@@ -33,7 +33,9 @@ internal static class SpikeLog
                 File.AppendAllText(FilePath, line + Environment.NewLine);
             }
 
+#pragma warning disable VSTHRD010 // OutputStringThreadSafe is documented as callable from any thread.
             Pane?.OutputStringThreadSafe(line + Environment.NewLine);
+#pragma warning restore VSTHRD010
         }
         catch (Exception)
         {
