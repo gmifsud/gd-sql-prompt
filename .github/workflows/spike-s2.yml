@@ -1,0 +1,29 @@
+name: Spike S2 (parser recovery)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  parser-recovery:
+    runs-on: ubuntu-latest
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: tools/fetch-corpus.sh
+      - run: dotnet build -c Release spikes/S2.ParserRecovery
+      - run: dotnet run -c Release --no-build --project spikes/S2.ParserRecovery -- tests/Corpus/external artifacts/s2
+      - run: cat artifacts/s2/report.md >> "$GITHUB_STEP_SUMMARY"
+        if: always()
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: s2-report
+          path: artifacts/s2/

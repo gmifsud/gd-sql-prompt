@@ -7,3 +7,5 @@ obj/
 TestResults/
 BenchmarkDotNet.Artifacts/
 *.swp
+artifacts/
+tests/Corpus/external/

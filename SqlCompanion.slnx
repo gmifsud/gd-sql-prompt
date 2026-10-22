@@ -2,6 +2,9 @@
   <Folder Name="/bench/">
     <Project Path="bench/SqlCompanion.Benchmarks/SqlCompanion.Benchmarks.csproj" />
   </Folder>
+  <Folder Name="/spikes/">
+    <Project Path="spikes/S2.ParserRecovery/S2.ParserRecovery.csproj" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/SqlCompanion.Cli/SqlCompanion.Cli.csproj" />
     <Project Path="src/SqlCompanion.Engine.Abstractions/SqlCompanion.Engine.Abstractions.csproj" />
