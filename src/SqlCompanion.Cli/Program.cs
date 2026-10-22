@@ -1,14 +1,22 @@
 using System.CommandLine;
+using SqlCompanion.Cli;
 using SqlCompanion.Engine;
 using SqlCompanion.Engine.Analysis;
 using SqlCompanion.Engine.Syntax;
 
-var lexFile = new Argument<FileInfo>("file") { Description = "SQL file to tokenise." };
+// Exit codes: 0 = success, 1 = SQL errors reported, 2 = invalid input (no matching or unreadable files).
+const int ExitInputError = 2;
+
+var lexFile = new Argument<string>("file") { Description = "SQL file to tokenise." };
 var lexCommand = new Command("lex", "Print the token stream with trivia (parser spike S2 diagnostics).") { lexFile };
 lexCommand.SetAction(parseResult =>
 {
-    var file = parseResult.GetValue(lexFile)!;
-    var text = File.ReadAllText(file.FullName);
+    var path = Path.GetFullPath(parseResult.GetValue(lexFile)!);
+    if (!TryRead(path, out var text))
+    {
+        return ExitInputError;
+    }
+
     var lex = Lexer.Lex(text);
     var lines = new LineMap(text);
 
@@ -30,17 +38,41 @@ lexCommand.SetAction(parseResult =>
     return 0;
 });
 
-var analyzeFiles = new Argument<FileInfo[]>("files") { Description = "SQL files to analyse.", Arity = ArgumentArity.OneOrMore };
-var analyzeCommand = new Command("analyze", "Report diagnostics in MSBuild canonical format. Exit code 1 if any error is found.") { analyzeFiles };
+var analyzeFiles = new Argument<string[]>("paths")
+{
+    Description = "Files, directories (searched recursively for *.sql) or glob patterns such as D:\\scripts\\*.sql or src/**/*.sql.",
+    Arity = ArgumentArity.OneOrMore,
+};
+var analyzeCommand = new Command(
+    "analyze",
+    "Report diagnostics in MSBuild canonical format. Exit code 1 if any error is found, 2 if an input matches no file.")
+{
+    analyzeFiles,
+};
 analyzeCommand.SetAction(async (parseResult, cancellationToken) =>
 {
+    var inputs = InputFiles.Expand(parseResult.GetValue(analyzeFiles)!, Environment.CurrentDirectory);
+    foreach (var pattern in inputs.Unmatched)
+    {
+        await Console.Error.WriteLineAsync($"sqlwc: no files match '{pattern}'.").ConfigureAwait(false);
+    }
+
+    if (inputs.Unmatched.Count > 0)
+    {
+        return ExitInputError;
+    }
+
     var service = new SyntaxDiagnosticService();
     var hasErrors = false;
 
-    foreach (var file in parseResult.GetValue(analyzeFiles)!)
+    foreach (var file in inputs.Files)
     {
-        var text = await File.ReadAllTextAsync(file.FullName, cancellationToken).ConfigureAwait(false);
-        var snapshot = new DocumentSnapshot(new Uri(file.FullName).AbsoluteUri, 0, text);
+        if (!TryRead(file, out var text))
+        {
+            return ExitInputError;
+        }
+
+        var snapshot = new DocumentSnapshot(new Uri(file).AbsoluteUri, 0, text);
         var diagnostics = await service.GetDiagnosticsAsync(snapshot, cancellationToken).ConfigureAwait(false);
         var lines = new LineMap(text);
 
@@ -48,7 +80,7 @@ analyzeCommand.SetAction(async (parseResult, cancellationToken) =>
         {
             var p = lines.GetPosition(d.Span.Start);
             var severity = d.Severity == DiagnosticSeverity.Error ? "error" : "warning";
-            Console.WriteLine($"{file.FullName}({p.Line + 1},{p.Character + 1}): {severity} {d.Id}: {d.Message}");
+            Console.WriteLine($"{file}({p.Line + 1},{p.Character + 1}): {severity} {d.Id}: {d.Message}");
             hasErrors |= d.Severity == DiagnosticSeverity.Error;
         }
     }
@@ -58,6 +90,21 @@ analyzeCommand.SetAction(async (parseResult, cancellationToken) =>
 
 var root = new RootCommand("SQL Workbench Companion command-line tools.") { lexCommand, analyzeCommand };
 return await root.Parse(args).InvokeAsync().ConfigureAwait(false);
+
+static bool TryRead(string path, out string text)
+{
+    try
+    {
+        text = File.ReadAllText(path);
+        return true;
+    }
+    catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+    {
+        Console.Error.WriteLine($"sqlwc: cannot read '{path}': {exception.Message}");
+        text = string.Empty;
+        return false;
+    }
+}
 
 static void Write(LineMap lines, int position, string kind, string text)
 {

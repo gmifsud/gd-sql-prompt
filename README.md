@@ -63,10 +63,13 @@ Tests run on Microsoft.Testing.Platform (opted in via `global.json`).
 
 ```bash
 # Token stream with trivia
-dotnet run --project src/SqlCompanion.Cli -- lex path/to/script.sql
+dotnet run --project src/SqlCompanion.Cli -- lex tests/Corpus/lexical/literals.sql
 
-# Diagnostics in MSBuild canonical format; exit code 1 on errors
-dotnet run --project src/SqlCompanion.Cli -- analyze path/to/*.sql
+# Diagnostics in MSBuild canonical format. Accepts files, directories (recursive *.sql)
+# and glob patterns; wildcards are expanded by sqlwc itself, so they work in cmd/PowerShell too.
+dotnet run --project src/SqlCompanion.Cli -- analyze tests/Corpus/incomplete/*.sql
+dotnet run --project src/SqlCompanion.Cli -- analyze "D:\scripts\**\*.sql"
+dotnet run --project src/SqlCompanion.Cli -- analyze D:\scripts
 
 # Benchmarks
 dotnet run -c Release --project bench/SqlCompanion.Benchmarks -- --filter '*'
@@ -75,5 +78,7 @@ dotnet run -c Release --project bench/SqlCompanion.Benchmarks -- --filter '*'
 tools/fetch-corpus.sh
 dotnet run -c Release --project spikes/S2.ParserRecovery -- tests/Corpus/external artifacts/s2
 ```
+
+`sqlwc` exit codes: `0` no errors · `1` SQL errors reported · `2` invalid input (a path or pattern matched no file, or a file could not be read).
 
 The language server (`sqlwc-lsp`) speaks LSP over stdio and can be attached to any LSP client.
