@@ -53,4 +53,5 @@ public static class SyntaxDiagnosticIds
     public const string UnterminatedComment = "SQLC0002";
     public const string UnterminatedQuotedIdentifier = "SQLC0003";
     public const string UnexpectedCharacter = "SQLC0004";
+    public const string ExpectedCloseParen = "SQLC0101";
 }

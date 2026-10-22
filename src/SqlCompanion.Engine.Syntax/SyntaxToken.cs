@@ -11,13 +11,13 @@ public sealed record SyntaxTrivia(SyntaxKind Kind, int Position, string Text)
 
 /// <summary>
 /// A lexical token with its leading and trailing trivia. Concatenating
-/// <see cref="ToFullString"/> over all tokens of a document reproduces the source exactly.
+/// <see cref="SyntaxElement.ToFullString"/> over all tokens of a document reproduces the source exactly.
 /// </summary>
 /// <remarks>
 /// Trivia ownership follows Roslyn: trailing trivia runs to and including the first line break;
 /// everything after it is leading trivia of the next token.
 /// </remarks>
-public sealed class SyntaxToken
+public sealed class SyntaxToken : SyntaxElement
 {
     public SyntaxToken(
         SyntaxKind kind,
@@ -33,7 +33,7 @@ public sealed class SyntaxToken
         TrailingTrivia = trailingTrivia;
     }
 
-    public SyntaxKind Kind { get; }
+    public override SyntaxKind Kind { get; }
 
     /// <summary>Offset of the token text, excluding leading trivia.</summary>
     public int Position { get; }
@@ -44,9 +44,9 @@ public sealed class SyntaxToken
 
     public ImmutableArray<SyntaxTrivia> TrailingTrivia { get; }
 
-    public TextSpan Span => new(Position, Text.Length);
+    public override TextSpan Span => new(Position, Text.Length);
 
-    public TextSpan FullSpan
+    public override TextSpan FullSpan
     {
         get
         {
@@ -56,9 +56,9 @@ public sealed class SyntaxToken
         }
     }
 
-    public string ToFullString()
+    public override void WriteTo(StringBuilder builder)
     {
-        var builder = new StringBuilder(FullSpan.Length);
+        ArgumentNullException.ThrowIfNull(builder);
         foreach (var trivia in LeadingTrivia)
         {
             builder.Append(trivia.Text);
@@ -69,8 +69,29 @@ public sealed class SyntaxToken
         {
             builder.Append(trivia.Text);
         }
+    }
 
-        return builder.ToString();
+    /// <summary>
+    /// End of the caret extent: the token end plus same-line trailing trivia (excluding the line break).
+    /// A caret in trailing whitespace after a token still belongs to the construct being typed.
+    /// </summary>
+    public int CaretExtentEnd
+    {
+        get
+        {
+            var end = Span.End;
+            foreach (var trivia in TrailingTrivia)
+            {
+                if (trivia.Kind == SyntaxKind.EndOfLineTrivia)
+                {
+                    break;
+                }
+
+                end = trivia.Span.End;
+            }
+
+            return end;
+        }
     }
 
     public override string ToString() => $"{Kind} {Span} \"{Text}\"";

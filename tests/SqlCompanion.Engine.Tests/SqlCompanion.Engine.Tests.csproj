@@ -6,6 +6,6 @@
     <ProjectReference Include="..\..\src\SqlCompanion.Engine.Binding\SqlCompanion.Engine.Binding.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\Corpus\**\*.sql" LinkBase="Corpus" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\Corpus\**\*.sql" Exclude="..\Corpus\external\**" LinkBase="Corpus" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

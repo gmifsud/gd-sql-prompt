@@ -68,4 +68,72 @@ public enum SyntaxKind
     EndOfLineTrivia,
     SingleLineCommentTrivia,
     MultiLineCommentTrivia,
+
+    // Nodes: structure
+    CompilationUnit,
+    Batch,
+    BatchSeparator,
+    ErrorNode,
+
+    // Nodes: statements
+    EmptyStatement,
+    LabelStatement,
+    SelectStatement,
+    InsertStatement,
+    UpdateStatement,
+    DeleteStatement,
+    MergeStatement,
+    DeclareStatement,
+    SetStatement,
+    IfStatement,
+    ElseClause,
+    WhileStatement,
+    BlockStatement,
+    TryCatchStatement,
+    CreateModuleStatement,
+    ModuleHeader,
+    SimpleStatement,
+    OpaqueStatement,
+
+    // Nodes: queries
+    WithClause,
+    CommonTableExpression,
+    QueryExpression,
+    QuerySpecification,
+    SelectClause,
+    TopClause,
+    IntoClause,
+    FromClause,
+    JoinClause,
+    OnClause,
+    WhereClause,
+    GroupByClause,
+    HavingClause,
+    OrderByClause,
+    OffsetClause,
+    ForClause,
+    OptionClause,
+
+    // Nodes: table sources
+    NamedTableSource,
+    DerivedTableSource,
+    FunctionTableSource,
+    VariableTableSource,
+    ParenthesizedTableSource,
+    Alias,
+    MultipartName,
+
+    // Nodes: DML clauses
+    DmlTarget,
+    SetClause,
+    OutputClause,
+    InsertColumnList,
+    ValuesClause,
+    MergeUsingClause,
+    MergeWhenClause,
+
+    // Nodes: expressions (shallow)
+    Expression,
+    ParenthesizedExpression,
+    Subquery,
 }

@@ -10,7 +10,7 @@ namespace SqlCompanion.Engine.Syntax;
 /// Invariants:
 /// <list type="number">
 /// <item>Never throws on any input string.</item>
-/// <item>Concatenating every token's <see cref="SyntaxToken.ToFullString"/> reproduces the input exactly.</item>
+/// <item>Concatenating every token's <see cref="SyntaxElement.ToFullString"/> reproduces the input exactly.</item>
 /// <item>The final token is always <see cref="SyntaxKind.EndOfFileToken"/>, which owns trailing trivia of the document.</item>
 /// </list>
 /// Malformed input (unterminated strings, comments or quoted identifiers; stray characters) yields a
