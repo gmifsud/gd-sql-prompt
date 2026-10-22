@@ -1,0 +1,2 @@
+SELECT 'unterminated
+FROM t

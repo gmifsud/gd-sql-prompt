@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\SqlCompanion.Engine.Syntax\SqlCompanion.Engine.Syntax.csproj" />
+  </ItemGroup>
+</Project>

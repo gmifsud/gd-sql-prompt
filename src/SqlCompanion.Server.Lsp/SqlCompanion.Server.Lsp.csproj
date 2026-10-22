@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>sqlwc-lsp</AssemblyName>
+    <RootNamespace>SqlCompanion.Server.Lsp</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="StreamJsonRpc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SqlCompanion.Engine.Analysis\SqlCompanion.Engine.Analysis.csproj" />
+    <ProjectReference Include="..\SqlCompanion.Engine.Binding\SqlCompanion.Engine.Binding.csproj" />
+    <ProjectReference Include="..\SqlCompanion.Engine.Formatting\SqlCompanion.Engine.Formatting.csproj" />
+  </ItemGroup>
+</Project>

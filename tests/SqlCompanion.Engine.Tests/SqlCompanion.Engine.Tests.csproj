@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="CsCheck" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SqlCompanion.Engine.Binding\SqlCompanion.Engine.Binding.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\Corpus\**\*.sql" LinkBase="Corpus" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

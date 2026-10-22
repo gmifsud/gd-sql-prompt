@@ -1,0 +1,3 @@
+* text=auto eol=lf
+# Corpus fixtures must round-trip byte-for-byte; never normalise.
+tests/Corpus/** -text

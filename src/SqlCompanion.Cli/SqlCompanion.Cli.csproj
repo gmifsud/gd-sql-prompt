@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>sqlwc</AssemblyName>
+    <RootNamespace>SqlCompanion.Cli</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SqlCompanion.Engine.Analysis\SqlCompanion.Engine.Analysis.csproj" />
+  </ItemGroup>
+</Project>

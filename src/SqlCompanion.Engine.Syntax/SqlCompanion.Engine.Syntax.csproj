@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\SqlCompanion.Engine.Abstractions\SqlCompanion.Engine.Abstractions.csproj" />
+  </ItemGroup>
+</Project>

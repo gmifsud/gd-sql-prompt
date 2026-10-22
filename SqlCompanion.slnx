@@ -1,0 +1,19 @@
+<Solution>
+  <Folder Name="/bench/">
+    <Project Path="bench/SqlCompanion.Benchmarks/SqlCompanion.Benchmarks.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/SqlCompanion.Cli/SqlCompanion.Cli.csproj" />
+    <Project Path="src/SqlCompanion.Engine.Abstractions/SqlCompanion.Engine.Abstractions.csproj" />
+    <Project Path="src/SqlCompanion.Engine.Analysis/SqlCompanion.Engine.Analysis.csproj" />
+    <Project Path="src/SqlCompanion.Engine.Binding/SqlCompanion.Engine.Binding.csproj" />
+    <Project Path="src/SqlCompanion.Engine.Formatting/SqlCompanion.Engine.Formatting.csproj" />
+    <Project Path="src/SqlCompanion.Engine.Metadata/SqlCompanion.Engine.Metadata.csproj" />
+    <Project Path="src/SqlCompanion.Engine.Syntax/SqlCompanion.Engine.Syntax.csproj" />
+    <Project Path="src/SqlCompanion.Server.Lsp/SqlCompanion.Server.Lsp.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SqlCompanion.Engine.Tests/SqlCompanion.Engine.Tests.csproj" />
+    <Project Path="tests/SqlCompanion.Server.Lsp.Tests/SqlCompanion.Server.Lsp.Tests.csproj" />
+  </Folder>
+</Solution>

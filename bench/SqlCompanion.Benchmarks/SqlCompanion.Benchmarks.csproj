@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- BenchmarkDotNet requires public, non-sealed benchmark classes. -->
+    <NoWarn>$(NoWarn);CA1515;CA1852</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\SqlCompanion.Engine.Syntax\SqlCompanion.Engine.Syntax.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\tests\Corpus\lexical\procedure.sql" Link="Corpus\procedure.sql" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
