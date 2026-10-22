@@ -25,6 +25,27 @@ jobs:
       - uses: microsoft/setup-msbuild@v2
       - name: Build VSIX (full MSBuild; VSIX packaging needs Windows)
         run: msbuild spikes/S1.SsmsHost/S1.SsmsHost.csproj /restore /p:Configuration=Release /v:minimal /nologo
+      - name: Verify VSIX contents (registrations SSMS needs to load the package)
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $vsix = Get-ChildItem spikes/S1.SsmsHost/bin/Release -Recurse -Filter *.vsix | Select-Object -First 1
+          if (-not $vsix) { throw 'No .vsix produced' }
+          $zip = [IO.Compression.ZipFile]::OpenRead($vsix.FullName)
+          function Read-Entry($entry) { $r = New-Object IO.StreamReader($entry.Open()); try { $r.ReadToEnd() } finally { $r.Dispose() } }
+          try {
+            $zip.Entries | ForEach-Object { '{0,9}  {1}' -f $_.Length, $_.FullName }
+            $pkgdef = $zip.Entries | Where-Object Name -like '*.pkgdef' | Select-Object -First 1
+            if (-not $pkgdef) { throw 'No .pkgdef in VSIX: package registration missing' }
+            $text = Read-Entry $pkgdef
+            "---- $($pkgdef.Name)"; $text
+            if ($text -notmatch '\\Menus\]') { throw 'pkgdef: menu resource not registered' }
+            if ($text -notmatch 'AutoLoadPackages') { throw 'pkgdef: auto-load not registered' }
+            $manifest = Read-Entry ($zip.Entries | Where-Object Name -eq 'extension.vsixmanifest')
+            if ($manifest -notmatch 'Microsoft.VisualStudio.MefComponent') { throw 'manifest: MEF component asset missing' }
+            if ($manifest -notmatch 'Microsoft.VisualStudio.Ssms') { throw 'manifest: SSMS installation target missing' }
+            'VSIX verified: pkgdef (menus, auto-load), MEF component, SSMS target.'
+          } finally { $zip.Dispose() }
       - uses: actions/upload-artifact@v4
         with:
           name: S1.SsmsHost-vsix
