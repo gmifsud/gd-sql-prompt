@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CommandTable xmlns="http://schemas.microsoft.com/VisualStudio/2005-10-18/CommandTable" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <Extern href="stdidcmd.h" />
+  <Extern href="vsshlids.h" />
+
+  <Commands package="guidSsmsHostPackage">
+    <Buttons>
+      <Button guid="guidSsmsHostCmdSet" id="DiagnosticsCommand" priority="0x0100" type="Button">
+        <Parent guid="guidSHLMainMenu" id="IDG_VS_TOOLS_EXT_TOOLS" />
+        <Strings>
+          <ButtonText>SQL Companion: S1 diagnostics</ButtonText>
+        </Strings>
+      </Button>
+    </Buttons>
+  </Commands>
+
+  <Symbols>
+    <GuidSymbol name="guidSsmsHostPackage" value="{0a7f2d1c-c557-490c-b6c3-9667d7032cd1}" />
+    <GuidSymbol name="guidSsmsHostCmdSet" value="{cf8f5551-6626-4240-a7fd-f1a970fb1b3c}">
+      <IDSymbol name="DiagnosticsCommand" value="0x0100" />
+    </GuidSymbol>
+  </Symbols>
+</CommandTable>

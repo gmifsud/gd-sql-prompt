@@ -1,0 +1,32 @@
+name: Spike S1 (SSMS extension)
+
+on:
+  push:
+    paths:
+      - 'spikes/S1.SsmsHost/**'
+      - '.github/workflows/spike-s1-vsix.yml'
+      - 'Directory.Packages.props'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  vsix:
+    runs-on: windows-latest
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+      DOTNET_NOLOGO: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - uses: microsoft/setup-msbuild@v2
+      - name: Build VSIX (full MSBuild; VSIX packaging needs Windows)
+        run: msbuild spikes/S1.SsmsHost/S1.SsmsHost.csproj /restore /p:Configuration=Release /v:minimal /nologo
+      - uses: actions/upload-artifact@v4
+        with:
+          name: S1.SsmsHost-vsix
+          path: spikes/S1.SsmsHost/bin/Release/**/*.vsix
+          if-no-files-found: error
