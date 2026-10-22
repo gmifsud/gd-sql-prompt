@@ -26,6 +26,16 @@ A **lossless, error-tolerant concrete syntax tree**: every source character belo
 | S4 Standalone UI | Avalonia + AvaloniaEdit vs WPF vs Monaco-in-WebView. | One editor tab bound to the engine; keystroke→completion latency; accessibility. |
 | S5 Auth / credentials | Entra ID interactive, SQL auth, integrated auth across target OSes. | `Microsoft.Data.SqlClient` prototypes; DPAPI / Keychain / libsecret storage. |
 
+Status (2026-10-22):
+
+| Spike | Status | Outcome |
+|---|---|---|
+| S1 SSMS host | Protocol ready — needs Windows + SSMS | [S1 protocol](spikes/S1-ssms-host.md) |
+| S2 Parser | **Complete — target met** | 98.5–99.9 % context recovery; ADR-0002 confirmed. [S2 report](spikes/S2-parser-recovery.md) |
+| S3 Metadata | Not started | Contracts in `SqlCompanion.Engine.Metadata` |
+| S4 Standalone UI | Not started | — |
+| S5 Auth / credentials | Not started | — |
+
 Cross-cutting from day one: [traceability matrix](traceability-matrix.md), test corpus (`tests/Corpus`), benchmark harness (`bench/`), versioned config schema, telemetry off by default.
 
 **Exit gate:** one document flows lexer → CST → binder → {completion, format, diagnostics}, exercised via the LSP server and the CLI; ADR-0005 accepted.

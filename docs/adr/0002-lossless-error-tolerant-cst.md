@@ -21,6 +21,10 @@
    - ScriptDom acts as a differential-testing oracle on complete scripts (statement boundaries, validity) and parses module definitions from `sys.sql_modules` where full fidelity matters.
 4. Spike S2 measures completion-context recovery on truncated scripts; the parser subset is extended by corpus evidence, not speculation.
 
+## Evidence (spike S2, 2026-10-22)
+
+[S2 report](../spikes/S2-parser-recovery.md): on 1,422 real-world scripts the tolerant parser recovered the completion context in 98.5–99.9 % of sampled carets across four editing states (target ≥ 95 %), agreed with ScriptDom on statement starts at 100.0 % recall / 99.9 % precision, produced zero crashes and zero lossy trees, and parsed ≈ 3.5× faster than ScriptDom. The implementation route is confirmed.
+
 ## Consequences
 
 - Higher up-front cost than ScriptDom alone; mitigated by restricting the owned grammar to what completion and formatting need.
