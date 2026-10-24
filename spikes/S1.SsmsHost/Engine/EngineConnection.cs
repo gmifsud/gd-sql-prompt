@@ -39,6 +39,24 @@ public sealed class EngineDiagnostic
     public int Severity { get; }
 }
 
+/// <summary>A completion candidate from the engine.</summary>
+public sealed class EngineCompletionItem
+{
+    public EngineCompletionItem(string label, int kind, string? detail)
+    {
+        Label = label;
+        Kind = kind;
+        Detail = detail;
+    }
+
+    public string Label { get; }
+
+    /// <summary>LSP <c>CompletionItemKind</c> (14 keyword, 6 variable, …).</summary>
+    public int Kind { get; }
+
+    public string? Detail { get; }
+}
+
 /// <summary>Text of a document at one moment, plus an opaque host object (the editor snapshot) to map results back.</summary>
 public sealed class DocumentText
 {
@@ -209,6 +227,7 @@ public sealed class EngineConnection : IDisposable
                 return;
             }
 
+            document.Dirty = true;
             document.Debounce ??= new Timer(_ => _ = Task.Run(() => SendChangeAsync(document)), null, Timeout.Infinite, Timeout.Infinite);
             document.Debounce.Change(_debounce, Timeout.InfiniteTimeSpan);
         }
@@ -349,6 +368,7 @@ public sealed class EngineConnection : IDisposable
                 .ConfigureAwait(false);
             await rpc.NotifyWithParameterObjectAsync("initialized", new { }).ConfigureAwait(false);
             initialized.TrySetResult(true);
+            _log($"Engine ready (LSP handshake complete, generation {generation}).");
         }
         catch (Exception exception) when (exception is ConnectionLostException or ObjectDisposedException or RemoteInvocationException)
         {
@@ -476,6 +496,7 @@ public sealed class EngineConnection : IDisposable
             }
         }
 
+        document.Dirty = false;
         var text = document.Capture();
         var version = document.Record(text.Tag);
         await SendAsync(rpc => rpc.NotifyWithParameterObjectAsync("textDocument/didChange", new
@@ -507,6 +528,53 @@ public sealed class EngineConnection : IDisposable
         }
         catch (Exception exception) when (exception is ConnectionLostException or ObjectDisposedException or System.IO.IOException)
         {
+        }
+    }
+
+    /// <summary>
+    /// Requests completion at a zero-based line/character. Pending (debounced) edits are flushed first so the
+    /// engine sees exactly what the user sees; the server processes messages in order. Returns an empty list
+    /// if the engine is unavailable or the request is cancelled — completion must never block typing.
+    /// </summary>
+    public async Task<IReadOnlyList<EngineCompletionItem>> CompleteAsync(string uri, int line, int character, CancellationToken cancellationToken)
+    {
+        OpenDocument? document;
+        JsonRpc? rpc;
+        Task ready;
+        lock (_gate)
+        {
+            _documents.TryGetValue(uri, out document);
+            (rpc, ready) = (_rpc, _ready);
+        }
+
+        if (document is null || rpc is null)
+        {
+            return Array.Empty<EngineCompletionItem>();
+        }
+
+        try
+        {
+            if (document.Dirty)
+            {
+                document.Debounce?.Change(Timeout.Infinite, Timeout.Infinite);
+                await SendChangeAsync(document).ConfigureAwait(false);
+            }
+
+            await ready.ConfigureAwait(false);
+            var result = await rpc.InvokeWithParameterObjectAsync<JToken>(
+                "textDocument/completion",
+                new { textDocument = new { uri }, position = new { line, character } },
+                cancellationToken).ConfigureAwait(false);
+
+            var items = (result?["items"] as JArray ?? new JArray())
+                .Select(i => new EngineCompletionItem(i.Value<string>("label") ?? string.Empty, i.Value<int?>("kind") ?? 0, i.Value<string>("detail")))
+                .Where(i => i.Label.Length > 0)
+                .ToList();
+            return items;
+        }
+        catch (Exception exception) when (exception is OperationCanceledException or ConnectionLostException or ObjectDisposedException or RemoteInvocationException or System.IO.IOException)
+        {
+            return Array.Empty<EngineCompletionItem>();
         }
     }
 
@@ -592,6 +660,15 @@ public sealed class EngineConnection : IDisposable
         public string Uri { get; }
 
         public Timer? Debounce { get; set; }
+
+        private int _dirty;
+
+        /// <summary>Edits not yet sent to the engine (flushed before a completion request).</summary>
+        public bool Dirty
+        {
+            get => Volatile.Read(ref _dirty) != 0;
+            set => Volatile.Write(ref _dirty, value ? 1 : 0);
+        }
 
         public int OpenedInGeneration { get; set; }
 

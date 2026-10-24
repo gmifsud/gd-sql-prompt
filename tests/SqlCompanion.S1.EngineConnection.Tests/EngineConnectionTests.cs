@@ -76,6 +76,43 @@ public sealed class EngineConnectionTests : IDisposable
     }
 
     [Fact]
+    public async Task Completion_SeesEditsMadeJustBeforeTheRequest()
+    {
+        _text = "DECLARE @Total INT;";
+        _engine.Open(Uri, Capture);
+        Next();
+
+        // Typed within the debounce window: the request must flush it rather than complete against stale text.
+        _text = "DECLARE @Total INT, @Count INT;\nSELECT ";
+        _engine.Change(Uri);
+        var items = await _engine.CompleteAsync(Uri, line: 1, character: 7, TestContext.Current.CancellationToken);
+
+        Assert.Contains(items, i => i.Label == "@Count" && i.Kind == 6);
+        Assert.Contains(items, i => i.Label == "SELECT" && i.Kind == 14);
+    }
+
+    [Fact]
+    public async Task Completion_InsideAStringLiteral_IsEmpty()
+    {
+        _text = "SELECT 'abc";
+        _engine.Open(Uri, Capture);
+        Next();
+
+        var items = await _engine.CompleteAsync(Uri, line: 0, character: 10, TestContext.Current.CancellationToken);
+
+        Assert.Empty(items);
+    }
+
+    [Fact]
+    public async Task Completion_ForUnknownDocument_IsEmptyWithoutStartingTheEngine()
+    {
+        var items = await _engine.CompleteAsync("file:///never-opened.sql", 0, 0, TestContext.Current.CancellationToken);
+
+        Assert.Empty(items);
+        Assert.Null(_engine.ProcessId);
+    }
+
+    [Fact]
     public void KilledEngine_IsRestartedAndOpenDocumentsAreResynchronised()
     {
         _text = "SELECT [unterminated";

@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using Microsoft.VisualStudio;
+using Microsoft.VisualStudio.ComponentModelHost;
 using Microsoft.VisualStudio.Shell;
 using Microsoft.VisualStudio.Shell.Interop;
 using Task = System.Threading.Tasks.Task;
@@ -44,6 +45,15 @@ public sealed class SsmsHostPackage : AsyncPackage
 
         _hostDescription = await DescribeHostAsync();
         SpikeLog.Info("Package loaded. " + _hostDescription);
+
+        if (await GetServiceAsync(typeof(SComponentModel)) is IComponentModel componentModel)
+        {
+            CompletionProviderReport.Collect(componentModel);
+        }
+        else
+        {
+            SpikeLog.Info("FAILED: SComponentModel unavailable; completion providers not enumerated.");
+        }
 
         if (await GetServiceAsync(typeof(IMenuCommandService)) is OleMenuCommandService commands)
         {
@@ -112,6 +122,7 @@ public sealed class SsmsHostPackage : AsyncPackage
             $"Host: {_hostDescription}{Environment.NewLine}{Environment.NewLine}" +
             $"Editor content types seen:{Environment.NewLine}{contentTypes}{Environment.NewLine}{Environment.NewLine}" +
             $"Engine: {engine}{Environment.NewLine}Engine path: {EngineHost.ServerPath}{Environment.NewLine}{Environment.NewLine}" +
+            $"Completion: {CompletionStats.Summary}{Environment.NewLine}Providers for SQL editors:{Environment.NewLine}{CompletionProviderReport.Summary}{Environment.NewLine}{Environment.NewLine}" +
             $"Full log: {SpikeLog.FilePath}";
 
         SpikeLog.Info("Diagnostics command invoked." + Environment.NewLine + summary);

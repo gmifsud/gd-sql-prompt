@@ -1,6 +1,6 @@
 # Spike S1 — SSMS host integration (protocol)
 
-- Status: **In progress — step 1 passed on SSMS 22** (prototype in [`spikes/S1.SsmsHost`](../../spikes/S1.SsmsHost); VSIX built by CI)
+- Status: **In progress — step 1 passed; step 2 partly evidenced; step 3 built** on SSMS 22 (prototype in [`spikes/S1.SsmsHost`](../../spikes/S1.SsmsHost); VSIX built by CI)
 - Decision informed: [ADR-0005](../adr/0005-first-product-surface.md) — SSMS first only if this spike is clean
 - Time-box: 5 working days
 
@@ -64,6 +64,22 @@ Each step maps to an ADR-0005 criterion. Capture evidence (screen recording or l
 | 5 Out-of-process worker | Step 2 |
 
 Risk noted: the extension relies on VS 2026's compatibility layer for 17.x extensions; a future SSMS could require rebuilding against SDK 18.x.
+
+### Step 2 — Out-of-process engine (2026-10-24, row B: SSMS 22.11)
+
+| Fact | Value | Source |
+|---|---|---|
+| Upgrade | 0.2.0 installed over 0.1.0: the engine runs from a new extension folder (`…\Extensions\30x2mb51.gsn\`, was `oyk2hyfp.ilm`) | `s1-host.log` |
+| SSMS self-update | SSMS updated 22.10.12210.168 → **22.11.12315.225** between sessions; the extension kept loading without reinstall | `s1-host.log` |
+| Engine start | `sqlwc-lsp.exe` (.NET 10) started from the VSIX `server\` folder 93 ms after the first query window opened | `s1-host.log` |
+| Document lifecycle | Open/close per query window forwarded to the engine | `s1-host.log` |
+| Not yet evidenced | Squiggles (the test text had no engine-detectable error), crash recovery, orphan check, latency. The 0.2.0 log did not record engine readiness or diagnostics; 0.3.0 adds both | — |
+| SSMS IntelliSense | Active and schema-aware (`dbo.` lists tables); its own parse errors appear in the Error List | Screenshot |
+
+| Criterion | Status |
+|---|---|
+| 1 Install / upgrade / uninstall | Install ✅ · upgrade ✅ · survives SSMS self-update ✅ · uninstall pending |
+| 5 Out-of-process worker | Starts from VSIX ✅ · diagnostics round trip, crash recovery and orphan check pending (CI-verified on Windows against the real engine) |
 
 ## Decision rule
 

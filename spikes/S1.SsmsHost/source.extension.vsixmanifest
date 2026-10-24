@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
   <Metadata>
-    <Identity Id="SqlCompanion.S1.SsmsHost.3fc294e9-e11e-40ef-90f0-ac920191c57d" Version="0.2.0" Language="en-US" Publisher="SQL Workbench Companion" />
+    <Identity Id="SqlCompanion.S1.SsmsHost.3fc294e9-e11e-40ef-90f0-ac920191c57d" Version="0.3.0" Language="en-US" Publisher="SQL Workbench Companion" />
     <DisplayName>SQL Companion - S1 SSMS host spike</DisplayName>
-    <Description xml:space="preserve">Throwaway feasibility spike. Step 2: runs the SQL Companion engine out of process and shows its diagnostics as squiggles in query windows. Not for production use.</Description>
+    <Description xml:space="preserve">Throwaway feasibility spike. Step 3: engine out of process, squiggles, and keyword/variable completion alongside SSMS IntelliSense. Not for production use.</Description>
   </Metadata>
   <Installation>
     <InstallationTarget Id="Microsoft.VisualStudio.Ssms" Version="[21.0,23.0)">

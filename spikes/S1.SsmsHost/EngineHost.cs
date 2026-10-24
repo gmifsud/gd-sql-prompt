@@ -39,7 +39,35 @@ internal static class EngineHost
         }
 
         var engine = new EngineConnection(() => new ProcessStartInfo(ServerPath), SpikeLog.Info, TimeSpan.FromMilliseconds(150));
-        engine.DiagnosticsPublished += published => DiagnosticsPublished?.Invoke(published);
+        engine.DiagnosticsPublished += published =>
+        {
+            LogDiagnosticsChange(published, engine);
+            DiagnosticsPublished?.Invoke(published);
+        };
         return engine;
+    }
+
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, int> LastDiagnosticCount = new(StringComparer.Ordinal);
+    private static int _published;
+
+    /// <summary>
+    /// Evidence for step 2: logs the first result per document and every change in its diagnostic count
+    /// (a squiggle appearing or disappearing), plus a latency summary every 25 results. No query text is logged.
+    /// </summary>
+    private static void LogDiagnosticsChange(PublishedDiagnostics published, EngineConnection engine)
+    {
+        var count = published.Diagnostics.Count;
+        var previous = LastDiagnosticCount.TryGetValue(published.Uri, out var last) ? last : -1;
+        LastDiagnosticCount[published.Uri] = count;
+        if (count != previous)
+        {
+            var codes = string.Join(",", System.Linq.Enumerable.Distinct(System.Linq.Enumerable.Select(published.Diagnostics, d => d.Code)));
+            SpikeLog.Info($"Diagnostics for {published.Uri} v{published.Version}: {count} ({(count == 0 ? "clear" : codes)}).");
+        }
+
+        if (Interlocked.Increment(ref _published) % 25 == 0)
+        {
+            SpikeLog.Info($"Engine status: {engine.Status}");
+        }
     }
 }
