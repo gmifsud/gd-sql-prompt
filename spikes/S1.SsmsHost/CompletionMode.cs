@@ -62,13 +62,26 @@ internal static class CompletionModeSettings
 /// (or the mode changes) the mode is applied to that window. Windows we switched off are remembered and restored
 /// when next activated after leaving Replace — we never switch on a window we did not switch off.
 /// </summary>
+/// <remarks>
+/// SSMS reports the toggle as unavailable while a query window is not ready (seen at start-up and before the
+/// window is connected). Such a window is re-checked every second while it stays the active document, so it is
+/// switched as soon as SSMS allows instead of waiting for the next activation. Closed windows are forgotten.
+/// </remarks>
 internal sealed class CompletionModeController
 {
+    private static readonly TimeSpan RetryInterval = TimeSpan.FromSeconds(1);
+
     private readonly System.IServiceProvider _services;
     private readonly EnvDTE.DTE _dte;
     private readonly Microsoft.VisualStudio.Threading.JoinableTaskFactory _joinableTaskFactory;
     private readonly HashSet<string> _disabledByUs = new(StringComparer.OrdinalIgnoreCase);
-    private readonly EnvDTE.WindowEvents _windowEvents; // must stay referenced or the COM event sink is collected
+
+    // Must stay referenced or the COM event sinks are collected.
+    private readonly EnvDTE.WindowEvents _windowEvents;
+    private readonly EnvDTE.DocumentEvents _documentEvents;
+
+    // Incremented on every apply; a pending retry stops when it no longer matches.
+    private int _generation;
 
     public CompletionModeController(System.IServiceProvider services, EnvDTE.DTE dte, Microsoft.VisualStudio.Threading.JoinableTaskFactory joinableTaskFactory)
     {
@@ -78,6 +91,8 @@ internal sealed class CompletionModeController
         _joinableTaskFactory = joinableTaskFactory;
         _windowEvents = dte.Events.WindowEvents;
         _windowEvents.WindowActivated += OnWindowActivated;
+        _documentEvents = dte.Events.DocumentEvents;
+        _documentEvents.DocumentClosing += OnDocumentClosing;
     }
 
     public string Status
@@ -96,23 +111,31 @@ internal sealed class CompletionModeController
     public string ApplyToActiveWindow(string reason)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
-        string? path;
-        try
-        {
-            path = _dte.ActiveDocument?.FullName;
-        }
-        catch (ArgumentException)
-        {
-            path = null; // some tool windows report no document
-        }
-
-        if (path is null || !path.EndsWith(".sql", StringComparison.OrdinalIgnoreCase))
+        var generation = ++_generation;
+        var path = ActiveQueryPath();
+        if (path is null)
         {
             return "No query window active; the mode will apply to each query window as you switch to it.";
         }
 
+        var (line, unavailable) = Apply(path, reason);
+        SpikeLog.Info(line);
+        if (unavailable)
+        {
+            SpikeLog.Info($"{Path.GetFileName(path)}: SSMS IntelliSense toggle not available yet; re-checking every {RetryInterval.TotalSeconds:0} s while this window stays active.");
+            _ = _joinableTaskFactory.RunAsync(() => RetryWhileUnavailableAsync(path, generation));
+        }
+
+        return line;
+    }
+
+    /// <summary>Applies the mode to <paramref name="path"/> (the active query window); <c>unavailable</c> when SSMS did not report the toggle state and an action was due.</summary>
+    private (string Line, bool Unavailable) Apply(string path, string reason)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
         var name = Path.GetFileName(path);
         var state = SsmsIntelliSense.IsEnabled(_services, _dte);
+        var unavailable = false;
         string outcome;
         if (CompletionModeSettings.Mode == CompletionMode.Replace)
         {
@@ -121,33 +144,63 @@ internal sealed class CompletionModeController
                 _disabledByUs.Add(path);
                 outcome = $"{name}: SSMS IntelliSense switched off.";
             }
+            else if (state == false)
+            {
+                outcome = $"{name}: SSMS IntelliSense already off.";
+            }
             else
             {
-                outcome = state == false ? $"{name}: SSMS IntelliSense already off." : $"{name}: SSMS IntelliSense state unknown; not changed.";
+                unavailable = true;
+                outcome = $"{name}: SSMS IntelliSense state unknown; not changed yet.";
             }
         }
         else if (_disabledByUs.Contains(path))
         {
             if (state == false && SsmsIntelliSense.Toggle(_dte))
             {
+                _disabledByUs.Remove(path);
                 outcome = $"{name}: SSMS IntelliSense restored (we had switched it off).";
+            }
+            else if (state == true)
+            {
+                _disabledByUs.Remove(path);
+                outcome = $"{name}: SSMS IntelliSense already back on.";
             }
             else
             {
-                outcome = state == true ? $"{name}: SSMS IntelliSense already back on." : $"{name}: SSMS IntelliSense state unknown; restore it via Query > IntelliSense Enabled.";
+                unavailable = true; // keep the record: the restore is still owed
+                outcome = $"{name}: SSMS IntelliSense state unknown; restore pending.";
             }
-
-            _disabledByUs.Remove(path);
         }
         else
         {
-            outcome = $"{name}: SSMS IntelliSense untouched ({(state is { } on ? (on ? "on" : "off") : "unknown")}).";
+            outcome = $"{name}: SSMS IntelliSense untouched ({Describe(state)}).";
         }
 
         var after = SsmsIntelliSense.IsEnabled(_services, _dte);
-        var line = $"Mode {CompletionModeSettings.Mode} applied on {reason}: {outcome} (now {(after is { } a ? (a ? "on" : "off") : "unknown")}).";
-        SpikeLog.Info(line);
-        return line;
+        return ($"Mode {CompletionModeSettings.Mode} applied on {reason}: {outcome} (now {Describe(after)}).", unavailable);
+    }
+
+    private async System.Threading.Tasks.Task RetryWhileUnavailableAsync(string path, int generation)
+    {
+        var waited = TimeSpan.Zero;
+        while (true)
+        {
+            await System.Threading.Tasks.Task.Delay(RetryInterval).ConfigureAwait(false);
+            waited += RetryInterval;
+            await _joinableTaskFactory.SwitchToMainThreadAsync();
+            if (generation != _generation || !string.Equals(ActiveQueryPath(), path, StringComparison.OrdinalIgnoreCase))
+            {
+                return; // superseded by a newer apply, or the user moved to another document
+            }
+
+            var (line, unavailable) = Apply(path, $"retry after {waited.TotalSeconds:0} s");
+            if (!unavailable)
+            {
+                SpikeLog.Info(line);
+                return;
+            }
+        }
     }
 
     private void OnWindowActivated(EnvDTE.Window gotFocus, EnvDTE.Window lostFocus)
@@ -163,8 +216,8 @@ internal sealed class CompletionModeController
             return;
         }
 
-        var relevant = path is not null && path.EndsWith(".sql", StringComparison.OrdinalIgnoreCase)
-            && (CompletionModeSettings.Mode == CompletionMode.Replace || _disabledByUs.Contains(path));
+        var relevant = IsQueryPath(path)
+            && (CompletionModeSettings.Mode == CompletionMode.Replace || _disabledByUs.Contains(path!));
         if (!relevant)
         {
             return;
@@ -177,6 +230,45 @@ internal sealed class CompletionModeController
             ApplyToActiveWindow("window activation");
         });
     }
+
+    private void OnDocumentClosing(EnvDTE.Document document)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        string? path;
+        try
+        {
+            path = document?.FullName;
+        }
+        catch (ArgumentException)
+        {
+            return;
+        }
+
+        // The window's IntelliSense state ends with it; keeping the path would let a later window with the same
+        // path be "restored" against the user's choice.
+        if (path is not null && _disabledByUs.Remove(path))
+        {
+            SpikeLog.Info($"{Path.GetFileName(path)}: closed; forgotten by the completion mode controller.");
+        }
+    }
+
+    private string? ActiveQueryPath()
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        try
+        {
+            var path = _dte.ActiveDocument?.FullName;
+            return IsQueryPath(path) ? path : null;
+        }
+        catch (ArgumentException)
+        {
+            return null; // some tool windows report no document
+        }
+    }
+
+    private static bool IsQueryPath(string? path) => path is not null && path.EndsWith(".sql", StringComparison.OrdinalIgnoreCase);
+
+    private static string Describe(bool? state) => state is { } on ? (on ? "on" : "off") : "unknown";
 }
 
 /// <summary>

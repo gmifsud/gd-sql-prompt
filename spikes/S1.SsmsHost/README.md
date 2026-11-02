@@ -6,6 +6,7 @@ Prototype for the [S1 protocol](../../docs/spikes/S1-ssms-host.md). **Not for pr
 |---|---|---|
 | 1 | 0.1.0 | Loads into SSMS 21/22, logs host facts and editor content types, adds **Tools → SQL Companion: S1 diagnostics** |
 | 2 | 0.2.0 | Runs the engine (`sqlwc-lsp`, .NET 10) **out of process** and shows its diagnostics as squiggles in query windows; restarts it if it dies |
+| 3d | 0.5.1 | Windows not ready yet (start-up, not connected) are re-checked every second instead of waiting for the next activation; closed windows are forgotten |
 | 3c | 0.5.0 | Completion mode applied **per query window** on activation (SSMS's toggle is per window); windows we switched off are restored individually |
 | 3b | 0.4.0 | **Completion mode** (Tools → *SQL Companion: Cycle completion mode*): **Off** (SSMS only, default) → **Replace** (ours; SSMS IntelliSense switched off via its own command, restored on leaving) → **Merge experiment** (SSMS on, ours as an extra tab if SSMS's sessions call us) — [ADR-0006](../../docs/adr/0006-completion-replaces-ssms-intellisense.md) |
 | 3 | 0.3.0 | Keyword and `@variable` completion from the engine (marked **SQL Companion**) alongside SSMS IntelliSense; logs which completion machinery SSMS uses; logs engine readiness, squiggle changes and latency |
@@ -22,6 +23,17 @@ Or locally (Visual Studio 2026 with the extension development workload):
 
 Close SSMS, double-click the `.vsix`. Installing 0.2.0 over 0.1.0 is the **upgrade** test.
 Uninstall (from SSMS's `Common7\IDE`): `VSIXInstaller.exe /uninstall:SqlCompanion.S1.SsmsHost.3fc294e9-e11e-40ef-90f0-ac920191c57d`.
+
+## Step 3d test script (≈ 5 minutes)
+
+1. Install 0.5.1 with the mode still **Replace** (it is persisted). Start SSMS so it opens a query window at
+   start-up; connect as usual. **Do not click away from the query window.**
+2. Within a few seconds of connecting, type `DECLARE @t INT;` then `SELECT @` → **only** SQL Companion items and no
+   SSMS "Must declare…" error. (0.5.0 left SSMS IntelliSense on in this first window until you switched windows.)
+3. Toolbar **New Query** → same behaviour. Close that window.
+4. Run *S1 diagnostics*: the closed window must **not** be listed as "switched off by us".
+5. Cycle to **Off**, then send the dialog text and `s1-host.log`. Look for `retry after N s` and
+   `closed; forgotten` lines.
 
 ## Step 3c test script (≈ 5 minutes)
 

@@ -100,7 +100,7 @@ Risk noted: the extension relies on VS 2026's compatibility layer for 17.x exten
 |---|---|
 | 1 Install / upgrade / uninstall | Install ✅ · upgrade ✅ (×2) · survives SSMS self-update ✅ · uninstall pending |
 | 2 Text and caret access | Read ✅ · write pending |
-| 3 Completion coexistence | ⚠️ Works alone; with SSMS IntelliSense on, the systems contend for keystrokes and do not merge. **Decided: replace** ([ADR-0006](../adr/0006-completion-replaces-ssms-intellisense.md)), applied per window (0.5.0); merge proven feasible via the legacy path (0.4.0) |
+| 3 Completion coexistence | ⚠️ Works alone; with SSMS IntelliSense on, the systems contend for keystrokes and do not merge. **Decided: replace** ([ADR-0006](../adr/0006-completion-replaces-ssms-intellisense.md)), applied per window (0.5.0, start-up gap fixed in 0.5.1); merge proven feasible via the legacy path (0.4.0) |
 | 4 Commands / key bindings | Command ✅ · key bindings pending |
 | 5 Out-of-process worker | ✅ restart < 1 s, resync, clean shutdown, multi-day soak |
 | 7 Completion latency | ✅ p95 45 ms |
@@ -116,6 +116,27 @@ Risk noted: the extension relies on VS 2026's compatibility layer for 17.x exten
 
 Refined criterion 3: Replace works per window once applied on activation (0.5.0 to confirm); Merge is a proven
 fallback.
+
+### Step 3c — Per-window completion mode (2026-11-02, SSMS 22.11, VSIX 0.5.0)
+
+| Fact | Value | Source |
+|---|---|---|
+| Replace, per window | Every query window activated in Replace was switched off on activation (`SQLQuery1`–`5`, two SSMS sessions), including windows opened after the mode change | Log |
+| Persisted mode | Replace survived an SSMS restart and was applied to the new session's windows | Log |
+| Leaving Replace | Merge restored only the active window at once, the others on their next activation (`SQLQuery5`, `4`, `3`) | Log |
+| Merge | SSMS list with an extra **SQL Companion** tab; our tab lists `@asddd` and keywords | Screenshots |
+| Latency | Completion p50 3 ms, p95 118 ms (cold first request) over 12; round trips p95 16 ms | Diagnostics dialog |
+| **Defect D1** | At start-up and before a window is connected, `Query.IntelliSenseEnabled` reports **not enabled**, so the state is unknown and 0.5.0 did nothing. The window kept SSMS IntelliSense on until next activated — **75 min** in one session (18:08:23 → 19:23:00) | Log |
+| **Defect D2** | Windows closed while switched off stayed in the controller's set (`SQLQuery1/2` listed after both were closed) — stale diagnostics, and a later window with the same path could be "restored" against the user's choice | Diagnostics dialog, log |
+
+0.5.1 fixes both: an unavailable toggle is re-checked every second while that window stays the active document
+(cancelled by any newer apply or a document switch), and `DocumentClosing` drops the window from the set. The
+retry polls the public command state only; the alternative — a connection-changed hook — needs SSMS internals and
+is deferred to step 6.
+
+| Criterion | Status |
+|---|---|
+| 3 Completion coexistence | Replace per window ✅ (except windows not yet ready — 0.5.1 to confirm) · Merge feasible ✅ |
 
 ## Decision rule
 
