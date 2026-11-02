@@ -1,6 +1,6 @@
 # Spike S1 — SSMS host integration (protocol)
 
-- Status: **In progress — step 1 passed; step 2 partly evidenced; step 3 built** on SSMS 22 (prototype in [`spikes/S1.SsmsHost`](../../spikes/S1.SsmsHost); VSIX built by CI)
+- Status: **In progress — steps 1–3 run on SSMS 22.** Criteria 2, 5, 7 met; 3 needs a product decision (replace vs merge); 1, 4 partly; 6 pending (prototype in [`spikes/S1.SsmsHost`](../../spikes/S1.SsmsHost); VSIX built by CI)
 - Decision informed: [ADR-0005](../adr/0005-first-product-surface.md) — SSMS first only if this spike is clean
 - Time-box: 5 working days
 
@@ -80,6 +80,30 @@ Risk noted: the extension relies on VS 2026's compatibility layer for 17.x exten
 |---|---|
 | 1 Install / upgrade / uninstall | Install ✅ · upgrade ✅ · survives SSMS self-update ✅ · uninstall pending |
 | 5 Out-of-process worker | Starts from VSIX ✅ · diagnostics round trip, crash recovery and orphan check pending (CI-verified on Windows against the real engine) |
+
+### Step 3 — Completion and step 2 confirmation (2026-11-02, SSMS 22.11, VSIX 0.3.0)
+
+| Fact | Value | Source |
+|---|---|---|
+| Completion providers serving `SQL` editors | Only ours is SQL-specific. SSMS's T-SQL IntelliSense registers **no** MEF completion provider; the editor reaches it through the generic legacy shims (`ShimCompletionSourceProvider`, `ShimCompletionControllerFactory`, content type `code`) — i.e. a classic language service, not modern async completion (inference from the provider list) | Provider report |
+| Our async completion | Called by the editor (`GetOrCreate`, `InitializeCompletion` on insertion, backspace, deletion); items shown with the *SQL Companion* suffix and icons | Log, screenshots |
+| Completion latency | p50 2 ms, p95 45 ms, max 45 ms (first request, cold) over 17 requests — target ≤ 150 ms ✅ | Diagnostics dialog |
+| Coexistence | IntelliSense **off**: ours complete and correct (`@Total` offered after `SELECT @`). IntelliSense **on**: SSMS consumes `@` and our list goes stale; neither list offers `@Total`. The two systems do not merge | Screenshots |
+| Squiggles | `SQLC0001` raised and cleared 4× while typing; again after a restart | Log |
+| Crash recovery | Engine ended twice from Task Manager → restarted in **598 ms** and **726 ms**, 1 document resynchronised, diagnostics resumed | Log |
+| Shutdown | `Engine stopped` on every SSMS close (10 sessions) | Log |
+| Engine round trips | p50 1 ms, p95 13 ms, max 929 ms (first after start) over 101 | Diagnostics dialog |
+| Soak | VSIX 0.2.0 in daily use 24 Oct – 1 Nov: ≈ 9 SSMS sessions, 20+ query windows, no probe or engine errors | Log |
+| Upgrade | 0.2.0 → 0.3.0 installed to a new folder (`mgr3oack.lyq`) | Log |
+
+| Criterion | Status |
+|---|---|
+| 1 Install / upgrade / uninstall | Install ✅ · upgrade ✅ (×2) · survives SSMS self-update ✅ · uninstall pending |
+| 2 Text and caret access | Read ✅ · write pending |
+| 3 Completion coexistence | ⚠️ Works alone; with SSMS IntelliSense on, the systems contend for keystrokes and do not merge. Decision needed: replace (recommended) vs merge vs separate trigger |
+| 4 Commands / key bindings | Command ✅ · key bindings pending |
+| 5 Out-of-process worker | ✅ restart < 1 s, resync, clean shutdown, multi-day soak |
+| 7 Completion latency | ✅ p95 45 ms |
 
 ## Decision rule
 

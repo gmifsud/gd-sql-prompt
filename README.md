@@ -20,7 +20,7 @@ A T-SQL developer productivity platform — schema-aware completion, formatting,
 | Formatter | Identity placeholder (Phase 1) |
 | Completion | Keywords + document variables (Phase 2 makes it scope-aware) |
 | Metadata | Contracts only (spike S3) |
-| Spike S1 (SSMS) | Protocol ready; needs Windows + SSMS ([protocol](docs/spikes/S1-ssms-host.md)) |
+| Spike S1 (SSMS) | Steps 1–3 run on SSMS 22: extension, out-of-process engine, squiggles, completion ([evidence](docs/spikes/S1-ssms-host.md)) |
 | Spike S2 (parser) | Complete — target met |
 | Spikes S3–S5 | Not started |
 
