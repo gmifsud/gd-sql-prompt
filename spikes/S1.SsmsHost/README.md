@@ -6,6 +6,7 @@ Prototype for the [S1 protocol](../../docs/spikes/S1-ssms-host.md). **Not for pr
 |---|---|---|
 | 1 | 0.1.0 | Loads into SSMS 21/22, logs host facts and editor content types, adds **Tools → SQL Companion: S1 diagnostics** |
 | 2 | 0.2.0 | Runs the engine (`sqlwc-lsp`, .NET 10) **out of process** and shows its diagnostics as squiggles in query windows; restarts it if it dies |
+| 3b | 0.4.0 | **Completion mode** (Tools → *SQL Companion: Cycle completion mode*): **Off** (SSMS only, default) → **Replace** (ours; SSMS IntelliSense switched off via its own command, restored on leaving) → **Merge experiment** (SSMS on, ours as an extra tab if SSMS's sessions call us) — [ADR-0006](../../docs/adr/0006-completion-replaces-ssms-intellisense.md) |
 | 3 | 0.3.0 | Keyword and `@variable` completion from the engine (marked **SQL Companion**) alongside SSMS IntelliSense; logs which completion machinery SSMS uses; logs engine readiness, squiggle changes and latency |
 
 Requires the **.NET 10 runtime** (the engine ships framework-dependent).
@@ -20,6 +21,19 @@ Or locally (Visual Studio 2026 with the extension development workload):
 
 Close SSMS, double-click the `.vsix`. Installing 0.2.0 over 0.1.0 is the **upgrade** test.
 Uninstall (from SSMS's `Common7\IDE`): `VSIXInstaller.exe /uninstall:SqlCompanion.S1.SsmsHost.3fc294e9-e11e-40ef-90f0-ac920191c57d`.
+
+## Step 3b test script (≈ 10 minutes)
+
+Run each step with a **query window active** (the mode command reads SSMS's IntelliSense toggle from it).
+
+1. Install 0.4.0 over 0.3.0, start SSMS, open **New Query**. Mode starts at **Off**: only SSMS's list should appear.
+2. Tools → **SQL Companion: Cycle completion mode** → **Replace**. The dialog says whether it switched SSMS
+   IntelliSense off. Type `SEL`, then `DECLARE @Total INT;` and `SELECT @` → only SQL Companion items, `@Total` offered.
+   Open a **second** New Query: is SSMS IntelliSense off there too (global) or only in the first (per window)?
+3. Cycle → **Merge experiment**. SSMS IntelliSense should be back on. Type `SEL` / `SELECT @`: do you see an extra
+   **SQL Companion** tab or items inside SSMS's list? **Screenshot.**
+4. Cycle → **Off**. SSMS behaves exactly as before installing.
+5. Run **Tools → SQL Companion: S1 diagnostics** and send the dialog text plus `s1-host.log`.
 
 ## Step 3 test script (≈ 10 minutes)
 

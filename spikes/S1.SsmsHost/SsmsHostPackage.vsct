@@ -11,6 +11,12 @@
           <ButtonText>SQL Companion: S1 diagnostics</ButtonText>
         </Strings>
       </Button>
+      <Button guid="guidSsmsHostCmdSet" id="CompletionModeCommand" priority="0x0101" type="Button">
+        <Parent guid="guidSHLMainMenu" id="IDG_VS_TOOLS_EXT_TOOLS" />
+        <Strings>
+          <ButtonText>SQL Companion: Cycle completion mode (Off / Replace / Merge experiment)</ButtonText>
+        </Strings>
+      </Button>
     </Buttons>
   </Commands>
 
@@ -18,6 +24,7 @@
     <GuidSymbol name="guidSsmsHostPackage" value="{0a7f2d1c-c557-490c-b6c3-9667d7032cd1}" />
     <GuidSymbol name="guidSsmsHostCmdSet" value="{cf8f5551-6626-4240-a7fd-f1a970fb1b3c}">
       <IDSymbol name="DiagnosticsCommand" value="0x0100" />
+      <IDSymbol name="CompletionModeCommand" value="0x0101" />
     </GuidSymbol>
   </Symbols>
 </CommandTable>

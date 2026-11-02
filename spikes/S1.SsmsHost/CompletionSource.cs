@@ -19,8 +19,8 @@ namespace SqlCompanion.Spikes.S1;
 
 /// <summary>
 /// S1 step 3: contributes engine completion items to SSMS query windows through the modern async completion
-/// API, alongside SSMS's own IntelliSense. Whether the editor ever calls us — and whether the two lists merge —
-/// is the coexistence evidence this step exists to collect, so every first call is logged.
+/// API. Active only in <see cref="CompletionMode.Replace"/> (ADR-0006), where SSMS IntelliSense is switched off;
+/// every first call is logged as evidence.
 /// </summary>
 [Export(typeof(IAsyncCompletionSourceProvider))]
 [ContentType("SQL")]
@@ -44,6 +44,12 @@ internal sealed class CompletionSource : IAsyncCompletionSource
     public CompletionStartData InitializeCompletion(CompletionTrigger trigger, SnapshotPoint triggerLocation, CancellationToken token)
     {
         CompletionStats.Note($"InitializeCompletion (reason {trigger.Reason})");
+
+        // ADR-0006: our list replaces SSMS IntelliSense; in other modes SSMS's completion is left alone.
+        if (CompletionModeSettings.Mode != CompletionMode.Replace)
+        {
+            return CompletionStartData.DoesNotParticipateInCompletion;
+        }
 
         var typed = trigger.Character;
         var participates = trigger.Reason switch

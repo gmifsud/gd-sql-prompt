@@ -111,6 +111,7 @@ S1/S4 run in parallel with the lexer/CST → binder chain.
 | Engine-first phasing | Accepted | [ADR-0003](adr/0003-engine-first-phasing.md) |
 | Cross-platform engine/CLI, Windows-first UI | Accepted | [ADR-0004](adr/0004-platform-targets.md) |
 | First product surface (standalone unless S1 is clean) | Proposed — decided at Phase 0 gate | [ADR-0005](adr/0005-first-product-surface.md) |
+| SQL Companion completion replaces SSMS IntelliSense in query windows (default off until schema-aware) | Accepted | [ADR-0006](adr/0006-completion-replaces-ssms-intellisense.md) |
 | Distribution model (personal/OSS vs commercial) | Open | — |
 
 ## Assumptions

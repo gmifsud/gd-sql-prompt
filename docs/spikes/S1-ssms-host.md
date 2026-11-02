@@ -100,7 +100,7 @@ Risk noted: the extension relies on VS 2026's compatibility layer for 17.x exten
 |---|---|
 | 1 Install / upgrade / uninstall | Install ✅ · upgrade ✅ (×2) · survives SSMS self-update ✅ · uninstall pending |
 | 2 Text and caret access | Read ✅ · write pending |
-| 3 Completion coexistence | ⚠️ Works alone; with SSMS IntelliSense on, the systems contend for keystrokes and do not merge. Decision needed: replace (recommended) vs merge vs separate trigger |
+| 3 Completion coexistence | ⚠️ Works alone; with SSMS IntelliSense on, the systems contend for keystrokes and do not merge. **Decided: replace** ([ADR-0006](../adr/0006-completion-replaces-ssms-intellisense.md)); 0.4.0 verifies the switch and runs the merge experiment |
 | 4 Commands / key bindings | Command ✅ · key bindings pending |
 | 5 Out-of-process worker | ✅ restart < 1 s, resync, clean shutdown, multi-day soak |
 | 7 Completion latency | ✅ p95 45 ms |

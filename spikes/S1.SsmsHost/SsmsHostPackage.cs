@@ -28,6 +28,7 @@ public sealed class SsmsHostPackage : AsyncPackage
     private static readonly Guid CommandSet = new("cf8f5551-6626-4240-a7fd-f1a970fb1b3c");
     private static readonly Guid OutputPaneGuid = new("a3549f22-3a25-4660-afe4-9a3bdd6db1a8");
     private const int DiagnosticsCommandId = 0x0100;
+    private const int CompletionModeCommandId = 0x0101;
 
     private string _hostDescription = "(not captured)";
 
@@ -58,7 +59,8 @@ public sealed class SsmsHostPackage : AsyncPackage
         if (await GetServiceAsync(typeof(IMenuCommandService)) is OleMenuCommandService commands)
         {
             commands.AddCommand(new MenuCommand(OnDiagnostics, new CommandID(CommandSet, DiagnosticsCommandId)));
-            SpikeLog.Info("Command registered: Tools > SQL Companion: S1 diagnostics.");
+            commands.AddCommand(new MenuCommand(OnCycleCompletionMode, new CommandID(CommandSet, CompletionModeCommandId)));
+            SpikeLog.Info($"Commands registered: Tools > SQL Companion: S1 diagnostics / completion mode (current: {CompletionModeSettings.Mode}).");
         }
         else
         {
@@ -106,6 +108,84 @@ public sealed class SsmsHostPackage : AsyncPackage
         return description.ToString();
     }
 
+    /// <summary>
+    /// Cycles Off → Replace → MergeExperiment → Off. Entering Replace switches SSMS IntelliSense off through its own
+    /// command and remembers that we did; leaving Replace restores it. Run it with a query window active.
+    /// </summary>
+    private void OnCycleCompletionMode(object sender, EventArgs e)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        if (GetService(typeof(EnvDTE.DTE)) is not EnvDTE.DTE dte)
+        {
+            SpikeLog.Info("FAILED: DTE unavailable; completion mode unchanged.");
+            return;
+        }
+
+        var from = CompletionModeSettings.Mode;
+        var to = from switch
+        {
+            CompletionMode.Off => CompletionMode.Replace,
+            CompletionMode.Replace => CompletionMode.MergeExperiment,
+            _ => CompletionMode.Off,
+        };
+
+        var before = SsmsIntelliSense.IsEnabled(this, dte);
+        var weDisabled = CompletionModeSettings.WeDisabledSsmsIntelliSense;
+        string action;
+
+        if (to == CompletionMode.Replace)
+        {
+            if (before == true && SsmsIntelliSense.Toggle(dte))
+            {
+                weDisabled = true;
+                action = "SSMS IntelliSense was on: switched it off.";
+            }
+            else
+            {
+                action = before == false
+                    ? "SSMS IntelliSense was already off: left as is."
+                    : "Could not read SSMS IntelliSense state (activate a query window). Turn it off via Query > IntelliSense Enabled.";
+            }
+        }
+        else if (weDisabled)
+        {
+            // Leaving Replace: give SSMS IntelliSense back only if we were the ones who took it away.
+            if (before == false && SsmsIntelliSense.Toggle(dte))
+            {
+                action = "Restored SSMS IntelliSense (we had switched it off).";
+            }
+            else
+            {
+                action = before == true
+                    ? "SSMS IntelliSense is already on."
+                    : "Could not read SSMS IntelliSense state; turn it on via Query > IntelliSense Enabled if needed.";
+            }
+
+            weDisabled = false;
+        }
+        else
+        {
+            action = "SSMS IntelliSense untouched.";
+        }
+
+        var after = SsmsIntelliSense.IsEnabled(this, dte);
+        CompletionModeSettings.Save(to, weDisabled);
+        var message =
+            $"Completion mode: {from} → {to}.{Environment.NewLine}{action}{Environment.NewLine}" +
+            $"SSMS IntelliSense before={Describe(before)} after={Describe(after)}.{Environment.NewLine}{Environment.NewLine}" +
+            to switch
+            {
+                CompletionMode.Replace => "SQL Companion completion is active; SSMS IntelliSense is off. Try typing SEL and SELECT @.",
+                CompletionMode.MergeExperiment => "SSMS IntelliSense on; SQL Companion items should appear as an extra tab in SSMS's list (if SSMS's sessions call us).",
+                _ => "SSMS IntelliSense only; SQL Companion completion inactive.",
+            };
+
+        SpikeLog.Info(message.Replace(Environment.NewLine, " "));
+        VsShellUtilities.ShowMessageBox(this, message, "SQL Companion - completion mode", OLEMSGICON.OLEMSGICON_INFO, OLEMSGBUTTON.OLEMSGBUTTON_OK, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+
+        static string Describe(bool? state) => state switch { true => "on", false => "off", null => "unknown" };
+    }
+
     private void OnDiagnostics(object sender, EventArgs e)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -118,8 +198,19 @@ public sealed class SsmsHostPackage : AsyncPackage
             ? EngineHost.Engine.Status
             : "not started yet (open a query window)";
 
+        var dte = GetService(typeof(EnvDTE.DTE)) as EnvDTE.DTE;
+        var ssmsIntelliSense = (dte is null ? null : SsmsIntelliSense.IsEnabled(this, dte)) switch
+        {
+            true => "on",
+            false => "off",
+            null => "unknown (activate a query window first)",
+        };
+        var intelliSenseCommands = dte is null ? "  (DTE unavailable)" : SsmsIntelliSense.DescribeCommands(dte);
+
         var summary =
             $"Host: {_hostDescription}{Environment.NewLine}{Environment.NewLine}" +
+            $"Completion mode: {CompletionModeSettings.Mode} · SSMS IntelliSense: {ssmsIntelliSense} · switched off by us: {CompletionModeSettings.WeDisabledSsmsIntelliSense}{Environment.NewLine}" +
+            $"SSMS IntelliSense commands:{Environment.NewLine}{intelliSenseCommands}{Environment.NewLine}{Environment.NewLine}" +
             $"Editor content types seen:{Environment.NewLine}{contentTypes}{Environment.NewLine}{Environment.NewLine}" +
             $"Engine: {engine}{Environment.NewLine}Engine path: {EngineHost.ServerPath}{Environment.NewLine}{Environment.NewLine}" +
             $"Completion: {CompletionStats.Summary}{Environment.NewLine}Providers for SQL editors:{Environment.NewLine}{CompletionProviderReport.Summary}{Environment.NewLine}{Environment.NewLine}" +
