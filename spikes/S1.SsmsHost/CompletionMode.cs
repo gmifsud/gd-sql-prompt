@@ -21,7 +21,7 @@ internal enum CompletionMode
     MergeExperiment,
 }
 
-/// <summary>Persisted completion mode, plus whether SQL Companion is the one that switched SSMS IntelliSense off.</summary>
+/// <summary>Persisted completion mode (per user). Which windows we switched off is per SSMS session, see <see cref="CompletionModeController"/>.</summary>
 internal static class CompletionModeSettings
 {
     private static readonly string FilePath = Path.Combine(Path.GetDirectoryName(SpikeLog.FilePath)!, "completion-mode.txt");
@@ -32,7 +32,6 @@ internal static class CompletionModeSettings
         {
             var lines = File.Exists(FilePath) ? File.ReadAllLines(FilePath) : [];
             Mode = lines.Length > 0 && Enum.TryParse(lines[0], out CompletionMode mode) ? mode : CompletionMode.Off;
-            WeDisabledSsmsIntelliSense = lines.Length > 1 && lines[1] == "we-disabled-ssms-intellisense";
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -42,21 +41,141 @@ internal static class CompletionModeSettings
 
     public static CompletionMode Mode { get; private set; }
 
-    public static bool WeDisabledSsmsIntelliSense { get; private set; }
-
-    public static void Save(CompletionMode mode, bool weDisabledSsmsIntelliSense)
+    public static void Save(CompletionMode mode)
     {
         Mode = mode;
-        WeDisabledSsmsIntelliSense = weDisabledSsmsIntelliSense;
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-            File.WriteAllLines(FilePath, [mode.ToString(), weDisabledSsmsIntelliSense ? "we-disabled-ssms-intellisense" : "ssms-intellisense-untouched"]);
+            File.WriteAllLines(FilePath, [mode.ToString()]);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             SpikeLog.Info($"Could not persist completion mode: {exception.Message}");
         }
+    }
+}
+
+/// <summary>
+/// Applies the completion mode to SSMS's IntelliSense <b>per query window</b>: S1 showed the
+/// <c>Query.IntelliSenseEnabled</c> toggle affects only the active window. Whenever a query window becomes active
+/// (or the mode changes) the mode is applied to that window. Windows we switched off are remembered and restored
+/// when next activated after leaving Replace — we never switch on a window we did not switch off.
+/// </summary>
+internal sealed class CompletionModeController
+{
+    private readonly System.IServiceProvider _services;
+    private readonly EnvDTE.DTE _dte;
+    private readonly Microsoft.VisualStudio.Threading.JoinableTaskFactory _joinableTaskFactory;
+    private readonly HashSet<string> _disabledByUs = new(StringComparer.OrdinalIgnoreCase);
+    private readonly EnvDTE.WindowEvents _windowEvents; // must stay referenced or the COM event sink is collected
+
+    public CompletionModeController(System.IServiceProvider services, EnvDTE.DTE dte, Microsoft.VisualStudio.Threading.JoinableTaskFactory joinableTaskFactory)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        _services = services;
+        _dte = dte;
+        _joinableTaskFactory = joinableTaskFactory;
+        _windowEvents = dte.Events.WindowEvents;
+        _windowEvents.WindowActivated += OnWindowActivated;
+    }
+
+    public string Status
+    {
+        get
+        {
+            ThreadHelper.ThrowIfNotOnUIThread();
+            var pending = CompletionModeSettings.Mode == CompletionMode.Replace ? "switched off by us" : "awaiting restore on next activation";
+            return _disabledByUs.Count == 0
+                ? "no query windows switched by us"
+                : $"{_disabledByUs.Count} query window(s) {pending}: {string.Join(", ", _disabledByUs.Select(Path.GetFileName))}";
+        }
+    }
+
+    /// <summary>Applies the current mode to the active query window, returning what was done (for the log/dialog).</summary>
+    public string ApplyToActiveWindow(string reason)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        string? path;
+        try
+        {
+            path = _dte.ActiveDocument?.FullName;
+        }
+        catch (ArgumentException)
+        {
+            path = null; // some tool windows report no document
+        }
+
+        if (path is null || !path.EndsWith(".sql", StringComparison.OrdinalIgnoreCase))
+        {
+            return "No query window active; the mode will apply to each query window as you switch to it.";
+        }
+
+        var name = Path.GetFileName(path);
+        var state = SsmsIntelliSense.IsEnabled(_services, _dte);
+        string outcome;
+        if (CompletionModeSettings.Mode == CompletionMode.Replace)
+        {
+            if (state == true && SsmsIntelliSense.Toggle(_dte))
+            {
+                _disabledByUs.Add(path);
+                outcome = $"{name}: SSMS IntelliSense switched off.";
+            }
+            else
+            {
+                outcome = state == false ? $"{name}: SSMS IntelliSense already off." : $"{name}: SSMS IntelliSense state unknown; not changed.";
+            }
+        }
+        else if (_disabledByUs.Contains(path))
+        {
+            if (state == false && SsmsIntelliSense.Toggle(_dte))
+            {
+                outcome = $"{name}: SSMS IntelliSense restored (we had switched it off).";
+            }
+            else
+            {
+                outcome = state == true ? $"{name}: SSMS IntelliSense already back on." : $"{name}: SSMS IntelliSense state unknown; restore it via Query > IntelliSense Enabled.";
+            }
+
+            _disabledByUs.Remove(path);
+        }
+        else
+        {
+            outcome = $"{name}: SSMS IntelliSense untouched ({(state is { } on ? (on ? "on" : "off") : "unknown")}).";
+        }
+
+        var after = SsmsIntelliSense.IsEnabled(_services, _dte);
+        var line = $"Mode {CompletionModeSettings.Mode} applied on {reason}: {outcome} (now {(after is { } a ? (a ? "on" : "off") : "unknown")}).";
+        SpikeLog.Info(line);
+        return line;
+    }
+
+    private void OnWindowActivated(EnvDTE.Window gotFocus, EnvDTE.Window lostFocus)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        string? path;
+        try
+        {
+            path = gotFocus?.Document?.FullName;
+        }
+        catch (ArgumentException)
+        {
+            return;
+        }
+
+        var relevant = path is not null && path.EndsWith(".sql", StringComparison.OrdinalIgnoreCase)
+            && (CompletionModeSettings.Mode == CompletionMode.Replace || _disabledByUs.Contains(path));
+        if (!relevant)
+        {
+            return;
+        }
+
+        // Let activation finish before executing the toggle command against the newly active window.
+        _ = _joinableTaskFactory.RunAsync(async () =>
+        {
+            await _joinableTaskFactory.SwitchToMainThreadAsync(alwaysYield: true);
+            ApplyToActiveWindow("window activation");
+        });
     }
 }
 

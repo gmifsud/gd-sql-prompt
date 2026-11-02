@@ -2,7 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-11-02
-- Evidence: [S1 step 3](../spikes/S1-ssms-host.md#step-3--completion-and-step-2-confirmation-2026-11-02-ssms-2211-vsix-030)
+- Evidence: [S1 steps 3 and 3b](../spikes/S1-ssms-host.md#step-3--completion-and-step-2-confirmation-2026-11-02-ssms-2211-vsix-030)
 
 ## Context
 
@@ -17,7 +17,8 @@ alone. With SSMS IntelliSense off, our completion was complete, correct and fast
    One visible setting controls it.
 2. SQL Companion switches SSMS IntelliSense off and back on only through SSMS's own command
    (`Query.IntelliSenseEnabled`), and restores it only if SQL Companion was the one that switched it off.
-   Private SSMS settings are never edited.
+   Private SSMS settings are never edited. The toggle is **per query window** (S1 step 3b), so the mode is applied
+   to each query window when it becomes active, and windows we switched off are restored individually.
 3. The default stays **off** (SSMS IntelliSense only) until SQL Companion completion is schema-aware
    (Phase 2, metadata spike S3), so installing SQL Companion never makes completion worse.
 
@@ -35,5 +36,5 @@ alone. With SSMS IntelliSense off, our completion was complete, correct and fast
 
 | Option | Not chosen because |
 |---|---|
-| Merge into SSMS's list (extra tab via legacy shims) | Two engines disagree on context and ranking; depends further on SSMS internals |
+| Merge into SSMS's list (extra tab via legacy shims) | **Proven feasible** (S1 step 3b: SSMS's session calls our legacy source; a *SQL Companion* tab appears in its list), but two engines then disagree on context and ranking, and the user has to switch tabs. Kept as a fallback if per-window replacement proves unreliable |
 | Separate trigger (shortcut only) | Safe, but not the inline experience the specification targets |

@@ -100,10 +100,22 @@ Risk noted: the extension relies on VS 2026's compatibility layer for 17.x exten
 |---|---|
 | 1 Install / upgrade / uninstall | Install ✅ · upgrade ✅ (×2) · survives SSMS self-update ✅ · uninstall pending |
 | 2 Text and caret access | Read ✅ · write pending |
-| 3 Completion coexistence | ⚠️ Works alone; with SSMS IntelliSense on, the systems contend for keystrokes and do not merge. **Decided: replace** ([ADR-0006](../adr/0006-completion-replaces-ssms-intellisense.md)); 0.4.0 verifies the switch and runs the merge experiment |
+| 3 Completion coexistence | ⚠️ Works alone; with SSMS IntelliSense on, the systems contend for keystrokes and do not merge. **Decided: replace** ([ADR-0006](../adr/0006-completion-replaces-ssms-intellisense.md)), applied per window (0.5.0); merge proven feasible via the legacy path (0.4.0) |
 | 4 Commands / key bindings | Command ✅ · key bindings pending |
 | 5 Out-of-process worker | ✅ restart < 1 s, resync, clean shutdown, multi-day soak |
 | 7 Completion latency | ✅ p95 45 ms |
+
+### Step 3b — Completion mode (2026-11-02, SSMS 22.11, VSIX 0.4.0)
+
+| Fact | Value | Source |
+|---|---|---|
+| Toggle | `Query.IntelliSenseEnabled` exists; its latched state is readable and executing it switches SSMS IntelliSense (`before=on after=off`) | Log |
+| **Scope of the toggle** | **Per query window, not global.** Window 1 off, window 2 (opened afterwards) still on — SSMS's own diagnostics ("Must declare the scalar variable") and the stale-list contention reappeared there | Screenshot, log (`before=on` read from window 2) |
+| **Merge feasibility** | **Possible via the legacy path.** SSMS's session calls our legacy `ICompletionSource` (`legacy AugmentCompletionSession … 1 existing set(s)`), and our items appear as a **SQL Companion** tab beside SSMS's **All** tab in its own list | Log, screenshot |
+| Defect found | 0.4.0 tracked a single global "we switched it off" flag: leaving Replace from window 2 did not restore window 1. 0.5.0 applies the mode per window on activation and restores only windows it switched off | Analysis |
+
+Refined criterion 3: Replace works per window once applied on activation (0.5.0 to confirm); Merge is a proven
+fallback.
 
 ## Decision rule
 

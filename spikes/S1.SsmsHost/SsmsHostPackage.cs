@@ -31,6 +31,7 @@ public sealed class SsmsHostPackage : AsyncPackage
     private const int CompletionModeCommandId = 0x0101;
 
     private string _hostDescription = "(not captured)";
+    private CompletionModeController? _modeController;
 
     protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
     {
@@ -64,7 +65,20 @@ public sealed class SsmsHostPackage : AsyncPackage
         }
         else
         {
-            SpikeLog.Info("FAILED: IMenuCommandService unavailable; command not registered.");
+            SpikeLog.Info("FAILED: IMenuCommandService unavailable; commands not registered.");
+        }
+
+        if (await GetServiceAsync(typeof(EnvDTE.DTE)) is EnvDTE.DTE dte)
+        {
+            _modeController = new CompletionModeController(this, dte, JoinableTaskFactory);
+            if (CompletionModeSettings.Mode == CompletionMode.Replace)
+            {
+                _modeController.ApplyToActiveWindow("package load"); // windows opened before the background load
+            }
+        }
+        else
+        {
+            SpikeLog.Info("FAILED: DTE unavailable; completion mode cannot be applied to query windows.");
         }
     }
 
@@ -109,15 +123,15 @@ public sealed class SsmsHostPackage : AsyncPackage
     }
 
     /// <summary>
-    /// Cycles Off → Replace → MergeExperiment → Off. Entering Replace switches SSMS IntelliSense off through its own
-    /// command and remembers that we did; leaving Replace restores it. Run it with a query window active.
+    /// Cycles Off → Replace → MergeExperiment → Off and applies the new mode to the active query window; other query
+    /// windows follow as they are activated (SSMS's IntelliSense toggle is per window).
     /// </summary>
     private void OnCycleCompletionMode(object sender, EventArgs e)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
-        if (GetService(typeof(EnvDTE.DTE)) is not EnvDTE.DTE dte)
+        if (_modeController is null)
         {
-            SpikeLog.Info("FAILED: DTE unavailable; completion mode unchanged.");
+            SpikeLog.Info("FAILED: completion mode controller unavailable (DTE missing); mode unchanged.");
             return;
         }
 
@@ -129,61 +143,19 @@ public sealed class SsmsHostPackage : AsyncPackage
             _ => CompletionMode.Off,
         };
 
-        var before = SsmsIntelliSense.IsEnabled(this, dte);
-        var weDisabled = CompletionModeSettings.WeDisabledSsmsIntelliSense;
-        string action;
-
-        if (to == CompletionMode.Replace)
-        {
-            if (before == true && SsmsIntelliSense.Toggle(dte))
-            {
-                weDisabled = true;
-                action = "SSMS IntelliSense was on: switched it off.";
-            }
-            else
-            {
-                action = before == false
-                    ? "SSMS IntelliSense was already off: left as is."
-                    : "Could not read SSMS IntelliSense state (activate a query window). Turn it off via Query > IntelliSense Enabled.";
-            }
-        }
-        else if (weDisabled)
-        {
-            // Leaving Replace: give SSMS IntelliSense back only if we were the ones who took it away.
-            if (before == false && SsmsIntelliSense.Toggle(dte))
-            {
-                action = "Restored SSMS IntelliSense (we had switched it off).";
-            }
-            else
-            {
-                action = before == true
-                    ? "SSMS IntelliSense is already on."
-                    : "Could not read SSMS IntelliSense state; turn it on via Query > IntelliSense Enabled if needed.";
-            }
-
-            weDisabled = false;
-        }
-        else
-        {
-            action = "SSMS IntelliSense untouched.";
-        }
-
-        var after = SsmsIntelliSense.IsEnabled(this, dte);
-        CompletionModeSettings.Save(to, weDisabled);
+        CompletionModeSettings.Save(to);
+        SpikeLog.Info($"Completion mode: {from} → {to}.");
+        var applied = _modeController.ApplyToActiveWindow("mode change");
         var message =
-            $"Completion mode: {from} → {to}.{Environment.NewLine}{action}{Environment.NewLine}" +
-            $"SSMS IntelliSense before={Describe(before)} after={Describe(after)}.{Environment.NewLine}{Environment.NewLine}" +
+            $"Completion mode: {from} → {to}.{Environment.NewLine}{applied}{Environment.NewLine}{_modeController.Status}.{Environment.NewLine}{Environment.NewLine}" +
             to switch
             {
-                CompletionMode.Replace => "SQL Companion completion is active; SSMS IntelliSense is off. Try typing SEL and SELECT @.",
-                CompletionMode.MergeExperiment => "SSMS IntelliSense on; SQL Companion items should appear as an extra tab in SSMS's list (if SSMS's sessions call us).",
-                _ => "SSMS IntelliSense only; SQL Companion completion inactive.",
+                CompletionMode.Replace => "SQL Companion completion is active. SSMS IntelliSense is switched off in each query window as you activate it.",
+                CompletionMode.MergeExperiment => "SSMS IntelliSense on (windows we switched off are restored as you activate them); SQL Companion items appear as an extra tab in SSMS's list.",
+                _ => "SSMS IntelliSense only (windows we switched off are restored as you activate them); SQL Companion completion inactive.",
             };
 
-        SpikeLog.Info(message.Replace(Environment.NewLine, " "));
         VsShellUtilities.ShowMessageBox(this, message, "SQL Companion - completion mode", OLEMSGICON.OLEMSGICON_INFO, OLEMSGBUTTON.OLEMSGBUTTON_OK, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
-
-        static string Describe(bool? state) => state switch { true => "on", false => "off", null => "unknown" };
     }
 
     private void OnDiagnostics(object sender, EventArgs e)
@@ -209,7 +181,7 @@ public sealed class SsmsHostPackage : AsyncPackage
 
         var summary =
             $"Host: {_hostDescription}{Environment.NewLine}{Environment.NewLine}" +
-            $"Completion mode: {CompletionModeSettings.Mode} · SSMS IntelliSense: {ssmsIntelliSense} · switched off by us: {CompletionModeSettings.WeDisabledSsmsIntelliSense}{Environment.NewLine}" +
+            $"Completion mode: {CompletionModeSettings.Mode} · SSMS IntelliSense (active window): {ssmsIntelliSense} · {_modeController?.Status ?? "mode controller unavailable"}{Environment.NewLine}" +
             $"SSMS IntelliSense commands:{Environment.NewLine}{intelliSenseCommands}{Environment.NewLine}{Environment.NewLine}" +
             $"Editor content types seen:{Environment.NewLine}{contentTypes}{Environment.NewLine}{Environment.NewLine}" +
             $"Engine: {engine}{Environment.NewLine}Engine path: {EngineHost.ServerPath}{Environment.NewLine}{Environment.NewLine}" +
