@@ -1,6 +1,6 @@
 # Spike S1 — SSMS host integration (protocol)
 
-- Status: **In progress — steps 1–3 run on SSMS 22.** Criteria 2, 5, 7 met; 3 needs a product decision (replace vs merge); 1, 4 partly; 6 pending (prototype in [`spikes/S1.SsmsHost`](../../spikes/S1.SsmsHost); VSIX built by CI)
+- Status: **Complete on row B (SSMS 22.11) — all seven criteria met.** Row A (SSMS 21) not run: no SSMS 21 available. Decision pending at the Phase 0 gate (see *Outcome*). Prototype in [`spikes/S1.SsmsHost`](../../spikes/S1.SsmsHost); VSIX built by CI
 - Decision informed: [ADR-0005](../adr/0005-first-product-surface.md) — SSMS first only if this spike is clean
 - Time-box: 5 working days
 
@@ -200,13 +200,31 @@ Blast radius: all access is to public types in SSMS-private, non-redistributable
 A rename or move breaks the connection feature only (the probe degrades to "not found"); editor features are
 unaffected. Mitigation: one adapter class, name-based binding, a start-up self-test logged per SSMS version.
 
-### Step 4 — Write, key bindings, uninstall (VSIX 0.7.0, protocol)
+### Step 4 — Write, key bindings, uninstall (2026-11-03, SSMS 22.11, VSIX 0.7.0)
 
-| Criterion | Probe | Pass when |
+| Fact | Value | Source |
 |---|---|---|
-| 2 Write | *Uppercase selection*: selection mapped to the data buffer, replaced in **one** `ITextEdit` | Text replaced; one Ctrl+Z restores it; read-only buffer reported, not thrown; engine diagnostics follow the edit |
-| 4 Key bindings | Default `Text Editor::Ctrl+K, Ctrl+Y` from the `.vsct`; diagnostics list every other command on the same chord or on `Ctrl+K` alone | Default applied; clashes known; a user rebinding persists across restarts |
-| 1 Uninstall | `VSIXInstaller /uninstall` | SSMS starts clean; no menu items or engine process; no `SqlCompanion` errors in `ActivityLog.xml` |
+| Write | *Uppercase selection* replaced 28 characters (one line, buffer v63 → v64) and 69 characters (five lines, v110 → v111) in **one edit each**; the query then executed normally | Screenshots (status bar) |
+| Undo / box selection | Undo-in-one-step and Alt+drag box selection not explicitly reported (the box-selection screenshot shows the earlier multi-line result). Box selections map to several spans and go through the same single edit | Screenshot, code |
+| Default binding | `Text Editor::Ctrl+K, Ctrl+Y` applied from the `.vsct`; **no** SSMS command on the same chord or on `Ctrl+K` alone | Diagnostics dialog |
+| Rebinding | User binding `Text Editor::Ctrl+Alt+U` added via Options → Keyboard and **persisted across an SSMS restart**, alongside the default | Diagnostics dialog (new engine pid) |
+| Uninstall | First SSMS session after the test (19:51 UTC): **no** `SqlCompanion` / package-GUID entries in `ActivityLog.xml`; its 8 errors are all SSMS's own (Copilot brokered services, Unified Settings, C# CodeLens registration) | `ActivityLog.xml` |
+| **Finding F4** | `CurrentlyActiveWndConnectionInfo` follows the **active window**, not the active document: with Object Explorer focused it returns Object Explorer's server connection (`DATABASE` null) and the IntelliSense toggle reads unknown. The adapter must resolve and cache the connection **per query document** on its activation, never at an arbitrary moment | Diagnostics dialog |
+
+## Outcome (row B)
+
+| # | ADR-0005 criterion | Result | Evidence |
+|---|---|---|---|
+| 1 | Install / upgrade / uninstall | ✅ 10+ upgrades, survives SSMS self-update, clean uninstall | Steps 1–4 |
+| 2 | Text read / write, caret | ✅ events, single-edit write | Steps 1, 4 |
+| 3 | Completion vs IntelliSense | ✅ Replace per window (ADR-0006); merge feasible | Steps 3–3e |
+| 4 | Commands and key bindings | ✅ default chord, no clash, rebinding persists | Step 4 |
+| 5 | Out-of-process worker | ✅ restart < 1 s with resync, no orphan, multi-day soak | Steps 2–3 |
+| 6 | Active connection | ✅ public types, late-bound by name; per-document caching required (F4) | Step 6 |
+| 7 | Completion latency | ✅ p95 ≤ 118 ms cold, 3 ms warm | Steps 3–3e |
+
+Residual risks for Phase 3a: SSMS-private assemblies move between releases (seen: `ServiceCache` →
+`SqlPackageBase.dll`); reliance on VS 2026's compatibility layer for SDK 17.x extensions; no SSMS 21 evidence.
 
 ## Decision rule
 
