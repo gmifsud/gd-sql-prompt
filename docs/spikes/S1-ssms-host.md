@@ -1,6 +1,6 @@
 # Spike S1 — SSMS host integration (protocol)
 
-- Status: **Complete on row B (SSMS 22.11) — all seven criteria met.** Row A (SSMS 21) not run: no SSMS 21 available. Decision pending at the Phase 0 gate (see *Outcome*). Prototype in [`spikes/S1.SsmsHost`](../../spikes/S1.SsmsHost); VSIX built by CI
+- Status: **Complete on row B (SSMS 22.11) — all seven criteria met.** Row A (SSMS 21) out of scope. **Decision: ADR-0005 accepted — SSMS first, SSMS 22+.** Prototype in [`spikes/S1.SsmsHost`](../../spikes/S1.SsmsHost); VSIX built by CI
 - Decision informed: [ADR-0005](../adr/0005-first-product-surface.md) — SSMS first only if this spike is clean
 - Time-box: 5 working days
 
@@ -14,7 +14,7 @@ Record exact versions; run every step on each row.
 
 | Row | SSMS version (Help → About) | Windows | Notes |
 |---|---|---|---|
-| A | 21.x | Windows 11 x64 | Not tested (developer machine has 22 only) |
+| A | 21.x | Windows 11 x64 | **Out of scope** (ADR-0005: SSMS 22+; VS 2022 shell) |
 | B | 22.10.12210.168 | Windows 11 x64 | Developer machine; VS 2026 shell |
 | C | Preview channel (optional) | Windows 11 x64 | Early warning only; not a gate |
 
@@ -224,7 +224,12 @@ unaffected. Mitigation: one adapter class, name-based binding, a start-up self-t
 | 7 | Completion latency | ✅ p95 ≤ 118 ms cold, 3 ms warm | Steps 3–3e |
 
 Residual risks for Phase 3a: SSMS-private assemblies move between releases (seen: `ServiceCache` →
-`SqlPackageBase.dll`); reliance on VS 2026's compatibility layer for SDK 17.x extensions; no SSMS 21 evidence.
+`SqlPackageBase.dll`); reliance on VS 2026's compatibility layer for SDK 17.x extensions.
+
+## Decision
+
+Clean on every target version once the targets are SSMS 22+: ADR-0005 **accepted with SSMS first** (2026-11-03).
+SSMS 21 is excluded, not failed.
 
 ## Decision rule
 

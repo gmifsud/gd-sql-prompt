@@ -4,7 +4,7 @@ Prototype for the [S1 protocol](../../docs/spikes/S1-ssms-host.md). **Not for pr
 
 | Step | Version | What it does |
 |---|---|---|
-| 1 | 0.1.0 | Loads into SSMS 21/22, logs host facts and editor content types, adds **Tools → SQL Companion: S1 diagnostics** |
+| 1 | 0.1.0 | Loads into SSMS 22 (SSMS 21 dropped by ADR-0005), logs host facts and editor content types, adds **Tools → SQL Companion: S1 diagnostics** |
 | 2 | 0.2.0 | Runs the engine (`sqlwc-lsp`, .NET 10) **out of process** and shows its diagnostics as squiggles in query windows; restarts it if it dies |
 | 4 | 0.7.0 | **Write** test (*Tools → SQL Companion: Uppercase selection*, one undoable edit) with a default key binding **Ctrl+K, Ctrl+Y**; diagnostics list our bindings and any SSMS command on the same chord |
 | 6b | 0.6.1 | Probe also reads `IsConnected`, `Live` and the window's own ADO.NET connection (`State`, `Database`) — the candidate for the **current** database |

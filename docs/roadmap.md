@@ -20,17 +20,17 @@ A **lossless, error-tolerant concrete syntax tree**: every source character belo
 
 | Spike | Question | Evidence required |
 |---|---|---|
-| S1 SSMS host | Can a VSIX on SSMS 21+ (VS 2022 shell, x64) reliably access text buffer, completion session, commands and lifecycle, talking to an out-of-process worker? | Prototype on each target SSMS version. Extensions are not officially supported in SSMS — treat API stability as a managed risk. |
+| S1 SSMS host | Can a VSIX on SSMS 22+ (VS 2026 shell, x64; SSMS 21 dropped by ADR-0005) reliably access text buffer, completion session, commands and lifecycle, talking to an out-of-process worker? | Prototype on each target SSMS version. Extensions are not officially supported in SSMS — treat API stability as a managed risk. |
 | S2 Parser | What fraction of cursor positions in truncated real scripts yield a correct completion context? | Corpus ≥ 500 scripts truncated at random offsets; target ≥ 95 % correct clause/scope recovery. |
 | S3 Metadata | Cold catalogue load at 10k objects / 100k columns; viability of a cheap staleness probe. | Timings for `sys.objects`/`sys.columns`/FK queries; `MAX(modify_date)` as invalidation key. |
 | S4 Standalone UI | Avalonia + AvaloniaEdit vs WPF vs Monaco-in-WebView. | One editor tab bound to the engine; keystroke→completion latency; accessibility. |
 | S5 Auth / credentials | Entra ID interactive, SQL auth, integrated auth across target OSes. | `Microsoft.Data.SqlClient` prototypes; DPAPI / Keychain / libsecret storage. |
 
-Status (2026-10-22):
+Status (2026-11-03):
 
 | Spike | Status | Outcome |
 |---|---|---|
-| S1 SSMS host | Protocol ready — needs Windows + SSMS | [S1 protocol](spikes/S1-ssms-host.md) |
+| S1 SSMS host | **Complete — clean on SSMS 22** | All seven criteria met; ADR-0005 accepted (SSMS first). [S1 report](spikes/S1-ssms-host.md) |
 | S2 Parser | **Complete — target met** | 98.5–99.9 % context recovery; ADR-0002 confirmed. [S2 report](spikes/S2-parser-recovery.md) |
 | S3 Metadata | Not started | Contracts in `SqlCompanion.Engine.Metadata` |
 | S4 Standalone UI | Not started | — |
@@ -63,9 +63,9 @@ Timing rules:
 
 ### Phase 3 — First product surface
 
-Branch selected by ADR-0005:
+Branch selected by ADR-0005: **3a (accepted 2026-11-03)**; 3b moves to Phase 4.
 
-- **3a SSMS adapter** — thin VSIX + engine worker; HIS-001/002/004 and ENV-001/002 within SSMS.
+- **3a SSMS adapter (SSMS 22+)** — thin VSIX + engine worker; HIS-001/002/004 and ENV-001/002 within SSMS.
 - **3b Standalone** — APP-001–007, 009 · HIS-001, 002, 004–007 · ENV-001/002. SQLite (WAL) history encrypted at rest; recovery via periodic durable snapshots; session restore never executes SQL.
 
 **Exit gate:** two weeks of daily use as a primary SQL editor, with defects logged.
@@ -110,7 +110,7 @@ S1/S4 run in parallel with the lexer/CST → binder chain.
 | Lossless error-tolerant CST; hybrid parser with ScriptDom oracle | Accepted | [ADR-0002](adr/0002-lossless-error-tolerant-cst.md) |
 | Engine-first phasing | Accepted | [ADR-0003](adr/0003-engine-first-phasing.md) |
 | Cross-platform engine/CLI, Windows-first UI | Accepted | [ADR-0004](adr/0004-platform-targets.md) |
-| First product surface (standalone unless S1 is clean) | Proposed — decided at Phase 0 gate | [ADR-0005](adr/0005-first-product-surface.md) |
+| First product surface: **SSMS adapter first, SSMS 22+** | Accepted | [ADR-0005](adr/0005-first-product-surface.md) |
 | SQL Companion completion replaces SSMS IntelliSense in query windows (default off until schema-aware) | Accepted | [ADR-0006](adr/0006-completion-replaces-ssms-intellisense.md) |
 | Distribution model (personal/OSS vs commercial) | Open | — |
 
