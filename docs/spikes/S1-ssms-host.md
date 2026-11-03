@@ -200,6 +200,14 @@ Blast radius: all access is to public types in SSMS-private, non-redistributable
 A rename or move breaks the connection feature only (the probe degrades to "not found"); editor features are
 unaffected. Mitigation: one adapter class, name-based binding, a start-up self-test logged per SSMS version.
 
+### Step 4 — Write, key bindings, uninstall (VSIX 0.7.0, protocol)
+
+| Criterion | Probe | Pass when |
+|---|---|---|
+| 2 Write | *Uppercase selection*: selection mapped to the data buffer, replaced in **one** `ITextEdit` | Text replaced; one Ctrl+Z restores it; read-only buffer reported, not thrown; engine diagnostics follow the edit |
+| 4 Key bindings | Default `Text Editor::Ctrl+K, Ctrl+Y` from the `.vsct`; diagnostics list every other command on the same chord or on `Ctrl+K` alone | Default applied; clashes known; a user rebinding persists across restarts |
+| 1 Uninstall | `VSIXInstaller /uninstall` | SSMS starts clean; no menu items or engine process; no `SqlCompanion` errors in `ActivityLog.xml` |
+
 ## Decision rule
 
 - **Clean** — steps 1–5 pass on rows A and B, and step 6 needs no non-public API: accept ADR-0005 with **SSMS first**.

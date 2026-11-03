@@ -19,7 +19,7 @@ namespace SqlCompanion.Spikes.S1;
 /// </summary>
 [PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
 [Guid(PackageGuidString)]
-[ProvideMenuResource("Menus.ctmenu", 1)]
+[ProvideMenuResource("Menus.ctmenu", 2)] // bumped so SSMS re-merges menus and default key bindings
 [ProvideAutoLoad(VSConstants.UICONTEXT.ShellInitialized_string, PackageAutoLoadFlags.BackgroundLoad)]
 public sealed class SsmsHostPackage : AsyncPackage
 {
@@ -29,6 +29,7 @@ public sealed class SsmsHostPackage : AsyncPackage
     private static readonly Guid OutputPaneGuid = new("a3549f22-3a25-4660-afe4-9a3bdd6db1a8");
     private const int DiagnosticsCommandId = 0x0100;
     private const int CompletionModeCommandId = 0x0101;
+    private const int UppercaseSelectionCommandId = 0x0102;
 
     private string _hostDescription = "(not captured)";
     private CompletionModeController? _modeController;
@@ -61,7 +62,8 @@ public sealed class SsmsHostPackage : AsyncPackage
         {
             commands.AddCommand(new MenuCommand(OnDiagnostics, new CommandID(CommandSet, DiagnosticsCommandId)));
             commands.AddCommand(new MenuCommand(OnCycleCompletionMode, new CommandID(CommandSet, CompletionModeCommandId)));
-            SpikeLog.Info($"Commands registered: Tools > SQL Companion: S1 diagnostics / completion mode (current: {CompletionModeSettings.Mode}).");
+            commands.AddCommand(new MenuCommand(OnUppercaseSelection, new CommandID(CommandSet, UppercaseSelectionCommandId)));
+            SpikeLog.Info($"Commands registered: Tools > SQL Companion: S1 diagnostics / completion mode (current: {CompletionModeSettings.Mode}) / uppercase selection.");
         }
         else
         {
@@ -158,6 +160,21 @@ public sealed class SsmsHostPackage : AsyncPackage
         VsShellUtilities.ShowMessageBox(this, message, "SQL Companion - completion mode", OLEMSGICON.OLEMSGICON_INFO, OLEMSGBUTTON.OLEMSGBUTTON_OK, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
     }
 
+    /// <summary>Step 2 (write) and step 4 (key binding): replaces the selection in one edit; Ctrl+Z must undo it in one step.</summary>
+    private void OnUppercaseSelection(object sender, EventArgs e)
+    {
+        ThreadHelper.ThrowIfNotOnUIThread();
+        var (ok, message) = SelectionWriter.UppercaseSelection(this);
+        SpikeLog.Info(message);
+        if (ok && GetService(typeof(EnvDTE.DTE)) is EnvDTE.DTE dte)
+        {
+            dte.StatusBar.Text = message;
+            return;
+        }
+
+        VsShellUtilities.ShowMessageBox(this, message, "SQL Companion - uppercase selection", OLEMSGICON.OLEMSGICON_INFO, OLEMSGBUTTON.OLEMSGBUTTON_OK, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+    }
+
     private void OnDiagnostics(object sender, EventArgs e)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
@@ -179,6 +196,8 @@ public sealed class SsmsHostPackage : AsyncPackage
         };
         var intelliSenseCommands = dte is null ? "  (DTE unavailable)" : SsmsIntelliSense.DescribeCommands(dte);
 
+        var bindings = dte is null ? "  (DTE unavailable)" : KeyBindingReport.Describe(dte, CommandSet);
+
         string Summary(bool redact) =>
             $"Host: {_hostDescription}{Environment.NewLine}{Environment.NewLine}" +
             $"Completion mode: {CompletionModeSettings.Mode} · SSMS IntelliSense (active window): {ssmsIntelliSense} · {_modeController?.Status ?? "mode controller unavailable"}{Environment.NewLine}" +
@@ -186,6 +205,7 @@ public sealed class SsmsHostPackage : AsyncPackage
             $"Editor content types seen:{Environment.NewLine}{contentTypes}{Environment.NewLine}{Environment.NewLine}" +
             $"Engine: {engine}{Environment.NewLine}Engine path: {EngineHost.ServerPath}{Environment.NewLine}{Environment.NewLine}" +
             $"Completion: {CompletionStats.Summary}{Environment.NewLine}Providers for SQL editors:{Environment.NewLine}{CompletionProviderReport.Summary}{Environment.NewLine}{Environment.NewLine}" +
+            $"Commands and key bindings (step 4):{Environment.NewLine}{bindings}{Environment.NewLine}{Environment.NewLine}" +
             $"Active connection (step 6):{Environment.NewLine}{ConnectionProbe.Describe(dte, redact)}{Environment.NewLine}{Environment.NewLine}" +
             $"Full log: {SpikeLog.FilePath}";
 

@@ -6,6 +6,7 @@ Prototype for the [S1 protocol](../../docs/spikes/S1-ssms-host.md). **Not for pr
 |---|---|---|
 | 1 | 0.1.0 | Loads into SSMS 21/22, logs host facts and editor content types, adds **Tools → SQL Companion: S1 diagnostics** |
 | 2 | 0.2.0 | Runs the engine (`sqlwc-lsp`, .NET 10) **out of process** and shows its diagnostics as squiggles in query windows; restarts it if it dies |
+| 4 | 0.7.0 | **Write** test (*Tools → SQL Companion: Uppercase selection*, one undoable edit) with a default key binding **Ctrl+K, Ctrl+Y**; diagnostics list our bindings and any SSMS command on the same chord |
 | 6b | 0.6.1 | Probe also reads `IsConnected`, `Live` and the window's own ADO.NET connection (`State`, `Database`) — the candidate for the **current** database |
 | 6 | 0.6.0 | *S1 diagnostics* probes the **active query window's connection** (server, database, authentication kind) and records whether each hop is public API |
 | 3e | 0.5.2 | A word-ending character (space, `.`, `(` …) closes our completion session without inserting anything, so `SELECT @` opens a fresh list with `@variables`; Tab/Enter still commit |
@@ -26,6 +27,22 @@ Or locally (Visual Studio 2026 with the extension development workload):
 
 Close SSMS, double-click the `.vsix`. Installing 0.2.0 over 0.1.0 is the **upgrade** test.
 Uninstall (from SSMS's `Common7\IDE`): `VSIXInstaller.exe /uninstall:SqlCompanion.S1.SsmsHost.3fc294e9-e11e-40ef-90f0-ac920191c57d`.
+
+## Step 4 test script (≈ 10 minutes) — write, key bindings, uninstall
+
+1. Install 0.7.0, start SSMS, connect, open **New Query**. Run *S1 diagnostics*: the *Commands and key bindings*
+   section should show `Uppercase selection` bound to `Text Editor::Ctrl+K, Ctrl+Y` and list any clashes.
+2. **Write**: type `select name from sys.objects`, select it, press **Ctrl+K, Ctrl+Y** → uppercased; the status
+   bar says `Write OK`. Squiggles still behave (the engine saw the edit). **Ctrl+Z** once → original text back.
+   Also try the menu item, a multi-line selection, and Alt+drag (box) selection.
+3. **Rebind**: *Tools → Options → Environment → Keyboard*, search `Uppercase`, assign another chord (e.g.
+   Ctrl+Alt+U, scope *Text Editor*). Restart SSMS → the new chord still works; diagnostics show it.
+4. Run *S1 diagnostics*, send the dialog text and `s1-host.log`.
+5. **Uninstall** (last): close SSMS, then from `C:\Program Files\Microsoft SQL Server Management Studio 22\Release\Common7\IDE`:
+   `VSIXInstaller.exe /uninstall:SqlCompanion.S1.SsmsHost.3fc294e9-e11e-40ef-90f0-ac920191c57d`
+   (or *Extensions → Manage Extensions → Uninstall*). Start SSMS: no error dialog, no *SQL Companion* items in
+   Tools, no `sqlwc-lsp.exe` in Task Manager. Then check `%APPDATA%\Microsoft\SSMS\22.0_*\ActivityLog.xml`
+   (run `ssms.exe /log` once if absent) for `SqlCompanion` errors. Reinstall afterwards to keep testing.
 
 ## Step 6b test script (optional — criterion 6 already met on 0.6.0)
 

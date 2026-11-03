@@ -17,14 +17,29 @@
           <ButtonText>SQL Companion: Cycle completion mode (Off / Replace / Merge experiment)</ButtonText>
         </Strings>
       </Button>
+      <Button guid="guidSsmsHostCmdSet" id="UppercaseSelectionCommand" priority="0x0102" type="Button">
+        <Parent guid="guidSHLMainMenu" id="IDG_VS_TOOLS_EXT_TOOLS" />
+        <Strings>
+          <ButtonText>SQL Companion: Uppercase selection (S1 write test)</ButtonText>
+        </Strings>
+      </Button>
     </Buttons>
   </Commands>
+
+  <!-- Step 4: a default chord in the text editor scope (SQL Prompt users know Ctrl+K, Ctrl+Y). Diagnostics report
+       anything else SSMS binds to the same chord, or to its first stroke alone. -->
+  <KeyBindings>
+    <KeyBinding guid="guidSsmsHostCmdSet" id="UppercaseSelectionCommand" editor="guidTextEditor" key1="K" mod1="Control" key2="Y" mod2="Control" />
+  </KeyBindings>
 
   <Symbols>
     <GuidSymbol name="guidSsmsHostPackage" value="{0a7f2d1c-c557-490c-b6c3-9667d7032cd1}" />
     <GuidSymbol name="guidSsmsHostCmdSet" value="{cf8f5551-6626-4240-a7fd-f1a970fb1b3c}">
       <IDSymbol name="DiagnosticsCommand" value="0x0100" />
       <IDSymbol name="CompletionModeCommand" value="0x0101" />
+      <IDSymbol name="UppercaseSelectionCommand" value="0x0102" />
     </GuidSymbol>
+    <!-- GUID_TextEditorFactory: the "Text Editor" scope in Tools > Options > Keyboard. -->
+    <GuidSymbol name="guidTextEditor" value="{8B382828-6202-11D1-8870-0000F87579D2}" />
   </Symbols>
 </CommandTable>
