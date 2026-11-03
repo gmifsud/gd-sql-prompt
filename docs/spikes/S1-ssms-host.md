@@ -126,7 +126,7 @@ fallback.
 | Leaving Replace | Merge restored only the active window at once, the others on their next activation (`SQLQuery5`, `4`, `3`) | Log |
 | Merge | SSMS list with an extra **SQL Companion** tab; our tab lists `@asddd` and keywords | Screenshots |
 | Latency | Completion p50 3 ms, p95 118 ms (cold first request) over 12; round trips p95 16 ms | Diagnostics dialog |
-| **Defect D1** | At start-up and before a window is connected, `Query.IntelliSenseEnabled` reports **not enabled**, so the state is unknown and 0.5.0 did nothing. The window kept SSMS IntelliSense on until next activated — **75 min** in one session (18:08:23 → 19:23:00) | Log |
+| **Defect D1** | While a window has no connection (start-up before connecting, or disconnected), `Query.IntelliSenseEnabled` reports **not enabled**, so the state is unknown and 0.5.0 did nothing. The window kept SSMS IntelliSense on until next activated — **75 min** in one session (18:08:23 → 19:23:00) | Log |
 | **Defect D2** | Windows closed while switched off stayed in the controller's set (`SQLQuery1/2` listed after both were closed) — stale diagnostics, and a later window with the same path could be "restored" against the user's choice | Diagnostics dialog, log |
 
 0.5.1 fixes both: an unavailable toggle is re-checked every second while that window stays the active document
@@ -187,10 +187,14 @@ late-binds and records, per hop, whether member and type are public. Open questi
 | Assembly | `ServiceCache` now lives in **`SqlPackageBase.dll` 22.200.0.0**, not `Microsoft.SqlServer.Management.UI.VSIntegration.dll` — same namespace, moved assembly. Binding by full type name across loaded assemblies absorbed it; a compile-time reference would have broken | Diagnostics dialog |
 | Server / user | `ServerName`, `UserName` match the status bar (Windows and SQL auth; local and remote server) | Diagnostics dialog |
 | Auth kind | `AuthenticationType`: **0 = Windows**, **1 = SQL**; Entra not yet observed | Diagnostics dialog |
-| Database | `AdvancedOptions[DATABASE]` populated (connect-time database); whether it tracks the drop-down / `USE` is **not yet established** | Diagnostics dialog |
-| Disconnected window | Still returned the previous `.\SQL2025` connection info — **consumers must gate on connection state** (`IsConnected` / `Live`, values probed in 0.6.1) | Diagnostics dialog |
+| Database | `AdvancedOptions[DATABASE]` is the window's **current** database: it follows both the toolbar drop-down and `USE` (`ISLStagingPlatformDb` → `master` after `USE master;`) | Diagnostics dialog, tester |
+| Disconnected window | `CurrentlyActiveWndConnectionInfo` is **null** (no stale data), and `Query.IntelliSenseEnabled` is **unavailable** (`available=False`). A dialog first read as "stale after disconnect" was a connected window after `USE master` (withdrawn) | Diagnostics dialog |
 | Events | `ScriptFactory` exposes **no public events**: connection changes must be polled or hooked elsewhere | Diagnostics dialog |
 | Window object | `SqlScriptEditorControl` (public) with `Connection`, `ConnectionInfoList`, `IsConnected` | Diagnostics dialog |
+
+Criterion 6 met: server, user, authentication kind and current database are readable through public types
+without a compile-time dependency; null means "not connected". The disconnected run also confirms D1's root cause:
+the IntelliSense toggle is unavailable without a connection, which the 0.5.1 retry covers. Open: the Entra `AuthenticationType` value (Phase 2, with S5).
 
 Blast radius: all access is to public types in SSMS-private, non-redistributable assemblies, late-bound by name.
 A rename or move breaks the connection feature only (the probe degrades to "not found"); editor features are

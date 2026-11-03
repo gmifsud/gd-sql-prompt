@@ -27,7 +27,7 @@ Or locally (Visual Studio 2026 with the extension development workload):
 Close SSMS, double-click the `.vsix`. Installing 0.2.0 over 0.1.0 is the **upgrade** test.
 Uninstall (from SSMS's `Common7\IDE`): `VSIXInstaller.exe /uninstall:SqlCompanion.S1.SsmsHost.3fc294e9-e11e-40ef-90f0-ac920191c57d`.
 
-## Step 6b test script (≈ 5 minutes)
+## Step 6b test script (optional — criterion 6 already met on 0.6.0)
 
 Run *S1 diagnostics* after **each** step, in the **same** query window, and label each dialog with the step number.
 
