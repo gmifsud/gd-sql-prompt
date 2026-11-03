@@ -39,7 +39,7 @@ internal static class ConnectionProbe
 
         try
         {
-            DescribeActiveWindowObject(dte, lines);
+            DescribeActiveWindowObject(dte, lines, redact);
         }
         catch (Exception exception)
         {
@@ -74,6 +74,7 @@ internal static class ConnectionProbe
         }
 
         lines.Add($"  {active.GetType().Name} public properties: {PublicProperties(active.GetType())}");
+        lines.Add($"  Live = {Read(active, "Live") ?? "(missing)"} · IsMultipleConnection = {Read(active, "IsMultipleConnection") ?? "(missing)"}");
         var info = Get(active, active.GetType(), "UIConnectionInfo", lines);
         if (info is null)
         {
@@ -97,7 +98,7 @@ internal static class ConnectionProbe
     }
 
     /// <summary>The query window's own automation object — a lead for the <b>current</b> database if UIConnectionInfo only holds the initial one.</summary>
-    private static void DescribeActiveWindowObject(EnvDTE.DTE? dte, List<string> lines)
+    private static void DescribeActiveWindowObject(EnvDTE.DTE? dte, List<string> lines, bool redact)
     {
         ThreadHelper.ThrowIfNotOnUIThread();
         var window = dte?.ActiveWindow;
@@ -115,6 +116,29 @@ internal static class ConnectionProbe
             .OrderBy(n => n)
             .ToList();
         lines.Add($"  active window object: {type.FullName} (public type {type.IsVisible}); connection-related public properties: {(leads.Count == 0 ? "(none)" : string.Join(", ", leads))}");
+        lines.Add($"  IsConnected = {Read(value, "IsConnected") ?? "(missing)"}");
+
+        var list = Get(value, type, "ConnectionInfoList", lines);
+        if (list is System.Collections.ICollection collection)
+        {
+            lines.Add($"  ConnectionInfoList count = {collection.Count}");
+        }
+
+        // The window's own connection: ADO.NET updates Database from the server on USE / drop-down changes, so this
+        // is the candidate for the *current* database. Read-only: never opens it, never reads ConnectionString.
+        var connection = Get(value, type, "Connection", lines);
+        if (connection is System.Data.IDbConnection db)
+        {
+            lines.Add($"  Connection.State = {db.State} · Connection.Database = {Show(db.Database, redact)}");
+            if (connection is System.Data.Common.DbConnection common)
+            {
+                lines.Add($"  Connection.DataSource = {Show(common.DataSource, redact)}");
+            }
+        }
+        else if (connection is not null)
+        {
+            lines.Add($"  Connection is not an IDbConnection; public properties: {PublicProperties(connection.GetType())}");
+        }
     }
 
     private static Type? FindType(string fullName, string assemblyName, List<string> lines)

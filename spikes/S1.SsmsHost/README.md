@@ -6,6 +6,7 @@ Prototype for the [S1 protocol](../../docs/spikes/S1-ssms-host.md). **Not for pr
 |---|---|---|
 | 1 | 0.1.0 | Loads into SSMS 21/22, logs host facts and editor content types, adds **Tools → SQL Companion: S1 diagnostics** |
 | 2 | 0.2.0 | Runs the engine (`sqlwc-lsp`, .NET 10) **out of process** and shows its diagnostics as squiggles in query windows; restarts it if it dies |
+| 6b | 0.6.1 | Probe also reads `IsConnected`, `Live` and the window's own ADO.NET connection (`State`, `Database`) — the candidate for the **current** database |
 | 6 | 0.6.0 | *S1 diagnostics* probes the **active query window's connection** (server, database, authentication kind) and records whether each hop is public API |
 | 3e | 0.5.2 | A word-ending character (space, `.`, `(` …) closes our completion session without inserting anything, so `SELECT @` opens a fresh list with `@variables`; Tab/Enter still commit |
 | 3d | 0.5.1 | Windows not ready yet (start-up, not connected) are re-checked every second instead of waiting for the next activation; closed windows are forgotten |
@@ -25,6 +26,16 @@ Or locally (Visual Studio 2026 with the extension development workload):
 
 Close SSMS, double-click the `.vsix`. Installing 0.2.0 over 0.1.0 is the **upgrade** test.
 Uninstall (from SSMS's `Common7\IDE`): `VSIXInstaller.exe /uninstall:SqlCompanion.S1.SsmsHost.3fc294e9-e11e-40ef-90f0-ac920191c57d`.
+
+## Step 6b test script (≈ 5 minutes)
+
+Run *S1 diagnostics* after **each** step, in the **same** query window, and label each dialog with the step number.
+
+1. Connect (Windows auth) to `(local)\SQL2025`, database **A** chosen at connect time (or the default).
+2. Change to database **B** in the toolbar drop-down.
+3. Execute `USE master;`.
+4. *Query → Connection → Disconnect*.
+5. Send the five *Active connection* sections. Entra, if available, is a bonus (`AuthenticationType` only).
 
 ## Step 6 test script (≈ 5 minutes)
 

@@ -179,6 +179,23 @@ late-binds and records, per hop, whether member and type are public. Open questi
 3. `AuthenticationType` values for Windows / SQL / Entra.
 4. Does `ScriptFactory` expose a public connection-changed event (would replace the 0.5.1 polling)?
 
+### Step 6 — Results (2026-11-03, SSMS 22.11, VSIX 0.6.0)
+
+| Fact | Value | Source |
+|---|---|---|
+| Route | `ServiceCache.ScriptFactory.CurrentlyActiveWndConnectionInfo.UIConnectionInfo` — **every hop public** (members and declared/runtime types) | Diagnostics dialog |
+| Assembly | `ServiceCache` now lives in **`SqlPackageBase.dll` 22.200.0.0**, not `Microsoft.SqlServer.Management.UI.VSIntegration.dll` — same namespace, moved assembly. Binding by full type name across loaded assemblies absorbed it; a compile-time reference would have broken | Diagnostics dialog |
+| Server / user | `ServerName`, `UserName` match the status bar (Windows and SQL auth; local and remote server) | Diagnostics dialog |
+| Auth kind | `AuthenticationType`: **0 = Windows**, **1 = SQL**; Entra not yet observed | Diagnostics dialog |
+| Database | `AdvancedOptions[DATABASE]` populated (connect-time database); whether it tracks the drop-down / `USE` is **not yet established** | Diagnostics dialog |
+| Disconnected window | Still returned the previous `.\SQL2025` connection info — **consumers must gate on connection state** (`IsConnected` / `Live`, values probed in 0.6.1) | Diagnostics dialog |
+| Events | `ScriptFactory` exposes **no public events**: connection changes must be polled or hooked elsewhere | Diagnostics dialog |
+| Window object | `SqlScriptEditorControl` (public) with `Connection`, `ConnectionInfoList`, `IsConnected` | Diagnostics dialog |
+
+Blast radius: all access is to public types in SSMS-private, non-redistributable assemblies, late-bound by name.
+A rename or move breaks the connection feature only (the probe degrades to "not found"); editor features are
+unaffected. Mitigation: one adapter class, name-based binding, a start-up self-test logged per SSMS version.
+
 ## Decision rule
 
 - **Clean** — steps 1–5 pass on rows A and B, and step 6 needs no non-public API: accept ADR-0005 with **SSMS first**.
