@@ -6,6 +6,7 @@ Prototype for the [S1 protocol](../../docs/spikes/S1-ssms-host.md). **Not for pr
 |---|---|---|
 | 1 | 0.1.0 | Loads into SSMS 21/22, logs host facts and editor content types, adds **Tools → SQL Companion: S1 diagnostics** |
 | 2 | 0.2.0 | Runs the engine (`sqlwc-lsp`, .NET 10) **out of process** and shows its diagnostics as squiggles in query windows; restarts it if it dies |
+| 3e | 0.5.2 | A word-ending character (space, `.`, `(` …) closes our completion session without inserting anything, so `SELECT @` opens a fresh list with `@variables`; Tab/Enter still commit |
 | 3d | 0.5.1 | Windows not ready yet (start-up, not connected) are re-checked every second instead of waiting for the next activation; closed windows are forgotten |
 | 3c | 0.5.0 | Completion mode applied **per query window** on activation (SSMS's toggle is per window); windows we switched off are restored individually |
 | 3b | 0.4.0 | **Completion mode** (Tools → *SQL Companion: Cycle completion mode*): **Off** (SSMS only, default) → **Replace** (ours; SSMS IntelliSense switched off via its own command, restored on leaving) → **Merge experiment** (SSMS on, ours as an extra tab if SSMS's sessions call us) — [ADR-0006](../../docs/adr/0006-completion-replaces-ssms-intellisense.md) |
@@ -23,6 +24,15 @@ Or locally (Visual Studio 2026 with the extension development workload):
 
 Close SSMS, double-click the `.vsix`. Installing 0.2.0 over 0.1.0 is the **upgrade** test.
 Uninstall (from SSMS's `Common7\IDE`): `VSIXInstaller.exe /uninstall:SqlCompanion.S1.SsmsHost.3fc294e9-e11e-40ef-90f0-ac920191c57d`.
+
+## Step 3e test script (≈ 5 minutes) — also covers 3d
+
+1. Install 0.5.2. In SSMS cycle the mode to **Replace**, then **restart SSMS** (so it starts in Replace). Connect
+   and stay in the start-up query window.
+2. Type `DECLARE @FF INT;`, Enter, then `SELECT @` **in one go, without pausing** → the list shows `@FF` (first)
+   and no SSMS "Must declare…" error. Repeat in a **New Query** a few times — it must work every time.
+3. Type `sel`, press **Tab** → `SELECT` is inserted. Type `t.` → stays `t.` (no keyword inserted).
+4. Close one window, run *S1 diagnostics*, cycle to **Off**; send the dialog text and `s1-host.log`.
 
 ## Step 3d test script (≈ 5 minutes)
 

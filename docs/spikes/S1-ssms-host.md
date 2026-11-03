@@ -138,6 +138,22 @@ is deferred to step 6.
 |---|---|
 | 3 Completion coexistence | Replace per window ✅ (except windows not yet ready — 0.5.1 to confirm) · Merge feasible ✅ |
 
+### Step 3d — 0.5.1 (2026-11-03, SSMS 22.11)
+
+| Fact | Value | Source |
+|---|---|---|
+| D2 fixed | `SQLQuery1/3.sql: closed; forgotten`; diagnostics list only open windows | Log |
+| D1 | Not exercised: SSMS started in Merge, so no window needed a retry | Log |
+| **Defect D3** | Replace, typing `DECLARE @FF INT;` ⏎ `SELECT @` without pausing → list showed only `SELECT`; intermittently correct on a new tab | Screenshot |
+
+D3 root cause (mechanism; confirmed by the step 3e test): no `IAsyncCompletionCommitManager` was exported for
+`SQL`, so our sessions had no commit characters and outlived the word they started on. The session opened at `S`
+kept extending its applicable span through the space and `@`; the item manager's pattern matcher drops the
+non-word `@`, so filter text `SELECT @` matched only `SELECT`. `@FF` was returned but filtered out. Intermittency =
+whether a pause/Esc ended the first session before `@`. 0.5.2 adds a commit manager: word-ending characters close
+our session without inserting the selection (no `t.` → `TABLE.`), Tab/Enter commit. SSMS-style commit-on-space is
+deferred to Phase 2 as a configurable behaviour.
+
 ## Decision rule
 
 - **Clean** — steps 1–5 pass on rows A and B, and step 6 needs no non-public API: accept ADR-0005 with **SSMS first**.
