@@ -136,7 +136,7 @@ is deferred to step 6.
 
 | Criterion | Status |
 |---|---|
-| 3 Completion coexistence | Replace per window ✅ (except windows not yet ready — 0.5.1 to confirm) · Merge feasible ✅ |
+| 3 Completion coexistence | Replace per window ✅ (start-up retry kept, unexercised) · Merge feasible ✅ |
 
 ### Step 3d — 0.5.1 (2026-11-03, SSMS 22.11)
 
@@ -153,6 +153,31 @@ non-word `@`, so filter text `SELECT @` matched only `SELECT`. `@FF` was returne
 whether a pause/Esc ended the first session before `@`. 0.5.2 adds a commit manager: word-ending characters close
 our session without inserting the selection (no `t.` → `TABLE.`), Tab/Enter commit. SSMS-style commit-on-space is
 deferred to Phase 2 as a configurable behaviour.
+
+### Step 3e — 0.5.2 (2026-11-03, SSMS 22.11)
+
+| Fact | Value | Source |
+|---|---|---|
+| Commit manager | Ours registered for `SQL` beside the debugger's (`code`); word-ending characters end our session (`session ended by a word-ending character`), each followed by a fresh request | Provider report, log |
+| D3 | No recurrence over 26 requests across 3 windows; p50 2 ms, p95 3 ms, max 44 ms (cold) | Diagnostics dialog, log |
+| Start-up in Replace | Both start-up windows switched off on first activation (≈ 3 s after load); toggle available, so the 0.5.1 retry was not needed | Log |
+| D1 retry | Still unexercised: the unavailable state (18:08 session) did not recur. Kept; low risk (bounded to the active window, public command state only) | Log |
+
+Criterion 3 met: Replace per window, stable across restarts, closes cleanly; Merge proven feasible.
+
+### Step 6 — Active connection (VSIX 0.6.0, protocol)
+
+No SSMS SDK exposes the connection. Candidate route (long used by SSMS add-ins):
+`ServiceCache.ScriptFactory.CurrentlyActiveWndConnectionInfo.UIConnectionInfo` in SSMS's
+`Microsoft.SqlServer.Management.UI.VSIntegration`. The assembly is not redistributable and not on CI, so the probe
+late-binds and records, per hop, whether member and type are public. Open questions the run answers:
+
+1. Is every hop public (→ criterion met with "unsupported but public" risk) or not (→ blast radius)?
+2. `AdvancedOptions[DATABASE]`: initial database only, or does it follow the drop-down / `USE`? If initial only,
+   the current database needs another source (lead: the window's automation object, also probed) or our own
+   tracking of `USE` plus a `DB_NAME()` query on the shared connection — to be decided from the evidence.
+3. `AuthenticationType` values for Windows / SQL / Entra.
+4. Does `ScriptFactory` expose a public connection-changed event (would replace the 0.5.1 polling)?
 
 ## Decision rule
 

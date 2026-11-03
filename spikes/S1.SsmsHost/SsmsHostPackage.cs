@@ -179,16 +179,19 @@ public sealed class SsmsHostPackage : AsyncPackage
         };
         var intelliSenseCommands = dte is null ? "  (DTE unavailable)" : SsmsIntelliSense.DescribeCommands(dte);
 
-        var summary =
+        string Summary(bool redact) =>
             $"Host: {_hostDescription}{Environment.NewLine}{Environment.NewLine}" +
             $"Completion mode: {CompletionModeSettings.Mode} · SSMS IntelliSense (active window): {ssmsIntelliSense} · {_modeController?.Status ?? "mode controller unavailable"}{Environment.NewLine}" +
             $"SSMS IntelliSense commands:{Environment.NewLine}{intelliSenseCommands}{Environment.NewLine}{Environment.NewLine}" +
             $"Editor content types seen:{Environment.NewLine}{contentTypes}{Environment.NewLine}{Environment.NewLine}" +
             $"Engine: {engine}{Environment.NewLine}Engine path: {EngineHost.ServerPath}{Environment.NewLine}{Environment.NewLine}" +
             $"Completion: {CompletionStats.Summary}{Environment.NewLine}Providers for SQL editors:{Environment.NewLine}{CompletionProviderReport.Summary}{Environment.NewLine}{Environment.NewLine}" +
+            $"Active connection (step 6):{Environment.NewLine}{ConnectionProbe.Describe(dte, redact)}{Environment.NewLine}{Environment.NewLine}" +
             $"Full log: {SpikeLog.FilePath}";
 
-        SpikeLog.Info("Diagnostics command invoked." + Environment.NewLine + summary);
+        // Server, database and user names appear in the dialog only; the log (which gets shared) is redacted.
+        SpikeLog.Info("Diagnostics command invoked." + Environment.NewLine + Summary(redact: true));
+        var summary = Summary(redact: false);
         SpikeLog.Pane?.Activate();
         VsShellUtilities.ShowMessageBox(
             this,
