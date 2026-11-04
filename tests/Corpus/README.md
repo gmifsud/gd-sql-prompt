@@ -7,5 +7,6 @@ SQL fixtures shared by unit tests and benchmarks. Files are stored byte-exact (`
 | `acceptance/` | Inputs for spec §14 acceptance scenarios. |
 | `lexical/` | Lexer edge cases: comments, literals, operators, CRLF, batches. |
 | `incomplete/` | Truncated or malformed scripts — the completion/tolerance workload for spike S2. |
+| `formatting/` | Golden formatter cases: `NN-name.input.sql` and the expected default-profile output `NN-name.expected.sql`. |
 
 Every `.sql` file must satisfy the lossless round-trip invariant. Spike S2 extends this with ≥ 500 real-world scripts truncated at random offsets.

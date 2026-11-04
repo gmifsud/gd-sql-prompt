@@ -2,10 +2,13 @@ using System.CommandLine;
 using SqlCompanion.Cli;
 using SqlCompanion.Engine;
 using SqlCompanion.Engine.Analysis;
+using SqlCompanion.Engine.Formatting;
 using SqlCompanion.Engine.Syntax;
 
-// Exit codes: 0 = success, 1 = SQL errors reported, 2 = invalid input (no matching or unreadable files).
+// Exit codes: 0 = success, 1 = SQL errors reported / files need formatting (--check),
+// 2 = invalid input (no matching or unreadable files), 3 = a file was left unformatted by the formatter's safety check.
 const int ExitInputError = 2;
+const int ExitFormatterSkipped = 3;
 
 var lexFile = new Argument<string>("file") { Description = "SQL file to tokenise." };
 var lexCommand = new Command("lex", "Print the token stream with trivia (parser spike S2 diagnostics).") { lexFile };
@@ -88,7 +91,93 @@ analyzeCommand.SetAction(async (parseResult, cancellationToken) =>
     return hasErrors ? 1 : 0;
 });
 
-var root = new RootCommand("SQL Workbench Companion command-line tools.") { lexCommand, analyzeCommand };
+var formatFiles = new Argument<string[]>("paths")
+{
+    Description = "Files, directories (searched recursively for *.sql) or glob patterns.",
+    Arity = ArgumentArity.OneOrMore,
+};
+var formatCheck = new Option<bool>("--check") { Description = "Change nothing; list files that would be reformatted and exit 1 if there are any." };
+var formatWrite = new Option<bool>("--write") { Description = "Rewrite files in place (encoding and byte-order mark preserved)." };
+var formatStyle = new Option<string>("--style")
+{
+    Description = $"Built-in style profile: {string.Join(", ", StyleProfile.BuiltIn.Keys.Order(StringComparer.Ordinal))}.",
+    DefaultValueFactory = _ => StyleProfile.Default.Name,
+};
+var formatCommand = new Command(
+    "format",
+    "Format SQL files. Without --check or --write, prints the formatted text of each file to standard output.")
+{
+    formatFiles,
+    formatCheck,
+    formatWrite,
+    formatStyle,
+};
+formatCommand.SetAction(async (parseResult, cancellationToken) =>
+{
+    var profile = StyleProfile.Find(parseResult.GetValue(formatStyle)!);
+    if (profile is null)
+    {
+        await Console.Error.WriteLineAsync($"sqlwc: unknown style '{parseResult.GetValue(formatStyle)}'.").ConfigureAwait(false);
+        return ExitInputError;
+    }
+
+    var inputs = InputFiles.Expand(parseResult.GetValue(formatFiles)!, Environment.CurrentDirectory);
+    foreach (var input in inputs.Unmatched)
+    {
+        await Console.Error.WriteLineAsync($"sqlwc: '{input.Argument}': {input.Reason}.").ConfigureAwait(false);
+    }
+
+    if (inputs.Unmatched.Count > 0)
+    {
+        return ExitInputError;
+    }
+
+    var check = parseResult.GetValue(formatCheck);
+    var write = parseResult.GetValue(formatWrite);
+    var unformatted = 0;
+    var skipped = 0;
+    foreach (var file in inputs.Files)
+    {
+        if (!SourceFile.TryRead(file, out var source))
+        {
+            return ExitInputError;
+        }
+
+        var result = SqlFormatter.Format(source.Text, profile);
+        if (result.SkippedReason is not null)
+        {
+            skipped++;
+            await Console.Error.WriteLineAsync($"{file}: skipped, left unchanged (formatter safety check: {result.SkippedReason}).").ConfigureAwait(false);
+            continue;
+        }
+
+        if (check || write)
+        {
+            if (result.Changed)
+            {
+                unformatted++;
+                Console.WriteLine(check ? $"{file}: would reformat" : $"{file}: reformatted");
+                if (write && !source.TryWrite(result.Text))
+                {
+                    return ExitInputError;
+                }
+            }
+        }
+        else
+        {
+            Console.Write(result.Text);
+        }
+    }
+
+    if (check || write)
+    {
+        Console.WriteLine($"{inputs.Files.Count} file(s): {unformatted} {(check ? "would be reformatted" : "reformatted")}, {skipped} skipped.");
+    }
+
+    return skipped > 0 ? ExitFormatterSkipped : check && unformatted > 0 ? 1 : 0;
+});
+
+var root = new RootCommand("SQL Workbench Companion command-line tools.") { lexCommand, analyzeCommand, formatCommand };
 return await root.Parse(args).InvokeAsync().ConfigureAwait(false);
 
 static bool TryRead(string path, out string text)

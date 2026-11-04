@@ -36,6 +36,7 @@ public sealed class LanguageServer(
             textDocumentSync = TextDocumentSyncKind.Full,
             completionProvider = new { triggerCharacters = new[] { "@", "." } },
             documentFormattingProvider = true,
+            documentRangeFormattingProvider = true,
         },
         serverInfo = new { name = "sqlwc-lsp", version = typeof(LanguageServer).Assembly.GetName().Version?.ToString() },
     };
@@ -100,15 +101,27 @@ public sealed class LanguageServer(
     }
 
     [JsonRpcMethod("textDocument/formatting", UseSingleObjectParameterDeserialization = true)]
-    public async Task<IReadOnlyList<LspTextEdit>> FormattingAsync(DocumentFormattingParams parameters, CancellationToken cancellationToken)
+    public Task<IReadOnlyList<LspTextEdit>> FormattingAsync(DocumentFormattingParams parameters, CancellationToken cancellationToken) =>
+        FormatAsync(parameters.TextDocument, range: null, parameters.Options, cancellationToken);
+
+    [JsonRpcMethod("textDocument/rangeFormatting", UseSingleObjectParameterDeserialization = true)]
+    public Task<IReadOnlyList<LspTextEdit>> RangeFormattingAsync(DocumentRangeFormattingParams parameters, CancellationToken cancellationToken) =>
+        FormatAsync(parameters.TextDocument, parameters.Range, parameters.Options, cancellationToken);
+
+    private async Task<IReadOnlyList<LspTextEdit>> FormatAsync(
+        TextDocumentIdentifier document, LspRange? range, LspFormattingOptions? options, CancellationToken cancellationToken)
     {
-        if (!_documents.TryGet(parameters.TextDocument.Uri, out var snapshot))
+        if (!_documents.TryGet(document.Uri, out var snapshot))
         {
             return [];
         }
 
-        var edits = await formatting.FormatAsync(snapshot, range: null, cancellationToken).ConfigureAwait(false);
         var lines = new LineMap(snapshot.Text);
+        TextSpan? span = range is null
+            ? null
+            : TextSpan.FromBounds(lines.GetOffset(ToLinePosition(range.Start)), lines.GetOffset(ToLinePosition(range.End)));
+        var engineOptions = options is null ? null : new FormattingOptions(options.TabSize, options.InsertSpaces);
+        var edits = await formatting.FormatAsync(snapshot, span, engineOptions, cancellationToken).ConfigureAwait(false);
         return [.. edits.Select(e => new LspTextEdit(ToLspRange(lines, e.Span), e.NewText))];
     }
 

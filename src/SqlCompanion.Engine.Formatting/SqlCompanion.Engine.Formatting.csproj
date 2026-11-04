@@ -1,5 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
+    <InternalsVisibleTo Include="SqlCompanion.Engine.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\SqlCompanion.Engine.Syntax\SqlCompanion.Engine.Syntax.csproj" />
   </ItemGroup>
 </Project>

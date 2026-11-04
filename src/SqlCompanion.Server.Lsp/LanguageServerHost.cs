@@ -18,7 +18,7 @@ public static class LanguageServerHost
     {
         var server = new LanguageServer(
             new KeywordCompletionService(),
-            new IdentityFormattingService(),
+            new SqlFormattingService(StyleProfile.Default),
             new SyntaxDiagnosticService());
 
         var rpc = new JsonRpc(new HeaderDelimitedMessageHandler(sending, receiving, CreateFormatter()))

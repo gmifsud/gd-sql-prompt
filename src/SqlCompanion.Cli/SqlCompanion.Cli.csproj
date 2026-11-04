@@ -10,5 +10,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\SqlCompanion.Engine.Analysis\SqlCompanion.Engine.Analysis.csproj" />
+    <ProjectReference Include="..\SqlCompanion.Engine.Formatting\SqlCompanion.Engine.Formatting.csproj" />
   </ItemGroup>
 </Project>

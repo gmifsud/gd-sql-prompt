@@ -44,10 +44,12 @@ Cross-cutting from day one: [traceability matrix](traceability-matrix.md), test 
 
 Scope: FMT-001–004, 006, 008, 009 · ANA-001, 005, 007, 010 · ANA-011 (SARIF 2.1.0) · `sqlwc format --check`, `sqlwc analyze`.
 
+Status (2026-11-04): **formatter v0.1 delivered** ([design](formatter.md), [ADR-0007](adr/0007-formatter-verify-or-refuse.md)) — FMT-001/003/004/006/008/009 in place, FMT-002 for reserved keywords; `sqlwc format --check / --write`. Rules (ANA-*), SARIF and the rest of FMT-002 remain.
+
 **Exit gate:**
-- `format ∘ format = format` (idempotence) over the corpus, as a property test.
-- `tokens≠trivia(format(x)) ≡ tokens≠trivia(x)` modulo casing policy (semantic preservation).
-- 5,000-line script formats in < 2 s.
+- `format ∘ format = format` (idempotence) over the corpus, as a property test. ✅ 1,432 scripts, every built-in profile on the fixtures.
+- `tokens≠trivia(format(x)) ≡ tokens≠trivia(x)` modulo casing policy (semantic preservation). ✅ Enforced at runtime on every format (verify-or-refuse); 0 refusals on the corpus.
+- 5,000-line script formats in < 2 s. ✅ 65 ms including verification.
 - Zero statement-boundary divergence from the ScriptDom oracle on complete scripts.
 
 ### Phase 2 — Metadata, binder, completion over LSP
@@ -112,6 +114,7 @@ S1 ran in parallel with the lexer/CST → binder chain; S4 moves to Phase 4 with
 | Cross-platform engine/CLI, Windows-first UI | Accepted | [ADR-0004](adr/0004-platform-targets.md) |
 | First product surface: **SSMS adapter first, SSMS 22+** | Accepted | [ADR-0005](adr/0005-first-product-surface.md) |
 | SQL Companion completion replaces SSMS IntelliSense in query windows (default off until schema-aware) | Accepted | [ADR-0006](adr/0006-completion-replaces-ssms-intellisense.md) |
+| Formatter changes whitespace and keyword casing only; every result is verified, refused on mismatch | Accepted | [ADR-0007](adr/0007-formatter-verify-or-refuse.md) |
 | Distribution model (personal/OSS vs commercial) | Open | — |
 
 ## Assumptions

@@ -24,7 +24,11 @@ public sealed record DidCloseTextDocumentParams(TextDocumentIdentifier TextDocum
 
 public sealed record CompletionParams(TextDocumentIdentifier TextDocument, LspPosition Position);
 
-public sealed record DocumentFormattingParams(TextDocumentIdentifier TextDocument);
+public sealed record LspFormattingOptions(int TabSize, bool InsertSpaces);
+
+public sealed record DocumentFormattingParams(TextDocumentIdentifier TextDocument, LspFormattingOptions? Options);
+
+public sealed record DocumentRangeFormattingParams(TextDocumentIdentifier TextDocument, LspRange Range, LspFormattingOptions? Options);
 
 public sealed record LspTextEdit(LspRange Range, string NewText);
 

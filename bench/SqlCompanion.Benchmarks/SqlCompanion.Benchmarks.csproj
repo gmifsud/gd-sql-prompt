@@ -11,6 +11,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\SqlCompanion.Engine.Syntax\SqlCompanion.Engine.Syntax.csproj" />
+    <ProjectReference Include="..\..\src\SqlCompanion.Engine.Formatting\SqlCompanion.Engine.Formatting.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\tests\Corpus\lexical\procedure.sql" Link="Corpus\procedure.sql" CopyToOutputDirectory="PreserveNewest" />

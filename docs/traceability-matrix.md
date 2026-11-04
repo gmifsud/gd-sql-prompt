@@ -9,7 +9,7 @@ Status values: `not-started` · `spike` · `in-progress` · `done` · `won't-do`
 |---|---|---|---|---|---|---|---|---|
 | Column completion via alias | SQL Prompt docs (current) | SSMS, VS | standard | CMP-003 | All | Scenario A | not-started | — |
 | Join condition suggestion | SQL Prompt docs (current) | SSMS, VS | standard | CMP-008 | All | Scenario B | not-started | — |
-| Format with style | SQL Prompt docs (current) | SSMS, VS | standard | FMT-001, FMT-009 | All + CLI | Scenario C | not-started | — |
+| Format with style | SQL Prompt docs (current) | SSMS, VS | standard | FMT-001, FMT-009 | All + CLI | Scenario C | in-progress | Document, range and CLI; 4 built-in profiles. DDL preserved, not reflowed; only reserved keywords cased ([design](formatter.md)) |
 | Find unused variables and parameters | SQL Prompt 8 docs | SSMS, VS | standard | ANA-004 | All | TBD | not-started | — |
 | Smart rename | SQL Prompt docs (current) | SSMS, VS | standard | REF-008 | Standalone, SSMS | Scenario D | not-started | Dynamic SQL references unresolvable |
 | SQL History | SQL Prompt docs (current) | SSMS only | standard | HIS-001–003 | Standalone, SSMS | TBD | not-started | — |

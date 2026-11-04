@@ -16,8 +16,8 @@ A T-SQL developer productivity platform — schema-aware completion, formatting,
 | Completion context resolver | Clause + in-scope sources at a caret (seed of the Phase 2 binder) |
 | Engine service contracts | Defined (`IDiagnosticService`, `IFormattingService`, `ICompletionService`) |
 | LSP server (stdio) | initialise / sync / diagnostics / completion / formatting / shutdown |
-| CLI | `lex`, `analyze` |
-| Formatter | Identity placeholder (Phase 1) |
+| CLI | `lex`, `analyze`, `format` |
+| Formatter | v0.1: clause layout, lists, predicates, CASE, control flow; 4 profiles; verify-or-refuse ([design](docs/formatter.md)) |
 | Completion | Keywords + document variables (Phase 2 makes it scope-aware) |
 | Metadata | Contracts only (spike S3) |
 | Spike S1 (SSMS) | **Complete** — clean on SSMS 22; first surface is the SSMS adapter, SSMS 22+ ([evidence](docs/spikes/S1-ssms-host.md), [ADR-0005](docs/adr/0005-first-product-surface.md)) |
@@ -33,7 +33,7 @@ src/
   SqlCompanion.Engine.Abstractions   text spans, line mapping, diagnostics, service contracts
   SqlCompanion.Engine.Syntax         lexer, tolerant parser, lossless CST
   SqlCompanion.Engine.Binding        completion context resolver, completion
-  SqlCompanion.Engine.Formatting     formatter (Phase 1)
+  SqlCompanion.Engine.Formatting     formatter: Doc algebra, layout, verify-or-refuse
   SqlCompanion.Engine.Analysis       diagnostics and rules
   SqlCompanion.Engine.Metadata       catalogue snapshot and provider contracts
   SqlCompanion.Server.Lsp            sqlwc-lsp — Language Server over stdio
@@ -75,6 +75,11 @@ dotnet run --project src/SqlCompanion.Cli -- analyze tests/Corpus/incomplete/*.s
 dotnet run --project src/SqlCompanion.Cli -- analyze "D:\scripts\**\*.sql"
 dotnet run --project src/SqlCompanion.Cli -- analyze D:\scripts
 
+# Format: print to stdout, or check / rewrite in place (encoding and BOM preserved)
+dotnet run --project src/SqlCompanion.Cli -- format query.sql
+dotnet run --project src/SqlCompanion.Cli -- format --check "D:\scripts\**\*.sql"
+dotnet run --project src/SqlCompanion.Cli -- format --write --style leading-commas D:\scripts
+
 # Benchmarks
 dotnet run -c Release --project bench/SqlCompanion.Benchmarks -- --filter '*'
 
@@ -89,6 +94,6 @@ dotnet run -c Release --project spikes/S2.ParserRecovery -- D:\my-scripts artifa
 dotnet run -c Release --project spikes/S3.Metadata -- --server "(local)\SQL2025" --trust-server-certificate --all
 ```
 
-`sqlwc` exit codes: `0` no errors · `1` SQL errors reported · `2` invalid input (a path or pattern matched no file, or a file could not be read).
+`sqlwc` exit codes: `0` success · `1` SQL errors reported (`analyze`) or files need formatting (`format --check`) · `2` invalid input (a path or pattern matched no file, or a file could not be read) · `3` the formatter's safety check left a file unchanged (a formatter bug; please report it).
 
 The language server (`sqlwc-lsp`) speaks LSP over stdio and can be attached to any LSP client.

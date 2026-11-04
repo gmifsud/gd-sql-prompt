@@ -79,7 +79,7 @@ public sealed class LanguageServerTests : IAsyncDisposable
     }
 
     [Fact]
-    public async Task Formatting_ReturnsNoEditsFromPlaceholderFormatter()
+    public async Task Formatting_ReturnsMinimalEdits()
     {
         await InitializeAsync();
         await OpenAsync("select 1", version: 1);
@@ -90,7 +90,30 @@ public sealed class LanguageServerTests : IAsyncDisposable
             new { textDocument = new { uri = Uri }, options = new { tabSize = 4, insertSpaces = true } },
             Ct);
 
-        Assert.Empty(edits);
+        var edit = Assert.Single(edits);
+        Assert.Equal("SELECT", edit.NewText);
+        Assert.Equal(new LspRange(new LspPosition(0, 0), new LspPosition(0, 6)), edit.Range);
+    }
+
+    [Fact]
+    public async Task RangeFormatting_UsesTheEditorIndentAndTouchesOnlyTheRange()
+    {
+        await InitializeAsync();
+        await OpenAsync("if 1 = 1 begin select 1 end\nselect   2", version: 1);
+        await _sink.NextAsync(Ct);
+
+        var edits = await _client.InvokeWithParameterObjectAsync<LspTextEdit[]>(
+            "textDocument/rangeFormatting",
+            new
+            {
+                textDocument = new { uri = Uri },
+                range = new { start = new { line = 0, character = 0 }, end = new { line = 0, character = 5 } },
+                options = new { tabSize = 2, insertSpaces = false },
+            },
+            Ct);
+
+        Assert.All(edits, e => Assert.Equal(0, e.Range.Start.Line));
+        Assert.Contains(edits, e => e.NewText.Contains("\n\tSELECT", StringComparison.Ordinal));
     }
 
     [Fact]

@@ -1,0 +1,1 @@
+select customer_identifier, customer_display_name, customer_primary_email_address, customer_created_at_utc, customer_status from dbo.customer where customer_status = 'active' and customer_created_at_utc >= '2026-01-01' and customer_primary_email_address is not null

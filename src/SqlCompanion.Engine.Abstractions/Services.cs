@@ -45,10 +45,13 @@ public interface IDiagnosticService
     ValueTask<ImmutableArray<Diagnostic>> GetDiagnosticsAsync(DocumentSnapshot document, CancellationToken cancellationToken);
 }
 
+/// <summary>Editor-supplied whitespace settings that override the style profile for one request (FMT-003).</summary>
+public sealed record FormattingOptions(int TabSize, bool InsertSpaces);
+
 public interface IFormattingService
 {
     /// <summary>Returns edits that format the document, or the given range when supplied (FMT-001).</summary>
-    ValueTask<ImmutableArray<TextEdit>> FormatAsync(DocumentSnapshot document, TextSpan? range, CancellationToken cancellationToken);
+    ValueTask<ImmutableArray<TextEdit>> FormatAsync(DocumentSnapshot document, TextSpan? range, FormattingOptions? options, CancellationToken cancellationToken);
 }
 
 public interface ICompletionService

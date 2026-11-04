@@ -4,6 +4,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\SqlCompanion.Engine.Binding\SqlCompanion.Engine.Binding.csproj" />
+    <ProjectReference Include="..\..\src\SqlCompanion.Engine.Formatting\SqlCompanion.Engine.Formatting.csproj" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\Corpus\**\*.sql" Exclude="..\Corpus\external\**" LinkBase="Corpus" CopyToOutputDirectory="PreserveNewest" />
