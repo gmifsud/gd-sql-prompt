@@ -38,6 +38,9 @@ public interface ICatalogueProvider
 {
     ValueTask<CatalogueSnapshot> LoadAsync(ConnectionKey connection, CancellationToken cancellationToken);
 
-    /// <summary>Cheap probe (e.g. <c>MAX(modify_date)</c> over <c>sys.objects</c>) used to decide whether to reload.</summary>
+    /// <summary>
+    /// Cheap probe used to decide whether to reload. Not <c>MAX(modify_date)</c> alone: spike S3 showed it misses drops of
+    /// non-latest objects and schema / user-type changes; the SQL Server token adds counts and checksums (S3 token P2).
+    /// </summary>
     ValueTask<string> GetStalenessTokenAsync(ConnectionKey connection, CancellationToken cancellationToken);
 }

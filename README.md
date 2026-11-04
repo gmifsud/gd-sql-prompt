@@ -22,7 +22,9 @@ A T-SQL developer productivity platform — schema-aware completion, formatting,
 | Metadata | Contracts only (spike S3) |
 | Spike S1 (SSMS) | **Complete** — clean on SSMS 22; first surface is the SSMS adapter, SSMS 22+ ([evidence](docs/spikes/S1-ssms-host.md), [ADR-0005](docs/adr/0005-first-product-surface.md)) |
 | Spike S2 (parser) | Complete — target met |
-| Spikes S3–S5 | Not started |
+| Spike S3 (metadata) | Question answered: composite staleness token, full load < 1 s at spec scale ([report](docs/spikes/S3-metadata.md)); Windows run pending |
+| Spike S4 (standalone UI) | Deferred to Phase 4 (ADR-0005) |
+| Spike S5 (auth) | Not started |
 
 ## Layout
 
@@ -44,6 +46,8 @@ bench/
   SqlCompanion.Benchmarks            BenchmarkDotNet
 spikes/
   S2.ParserRecovery                  parser-recovery harness (ScriptDom oracle)
+  S3.Metadata                        catalogue load and staleness-probe harness (SQL Server)
+  S1.SsmsHost                        SSMS 22 extension prototype (VSIX, built on Windows CI)
 tools/
   fetch-corpus.sh                    pinned external T-SQL corpus for spikes
 ```
@@ -80,6 +84,9 @@ dotnet run -c Release --project spikes/S2.ParserRecovery -- tests/Corpus/externa
 
 # Your own scripts; --placeholders lets ScriptDom check templated SQL ({name}, $(name), <name, type, default>)
 dotnet run -c Release --project spikes/S2.ParserRecovery -- D:\my-scripts artifacts/s2-local --placeholders
+
+# Spike S3 harness (SQL Server). --all creates and drops scratch databases: local instances only
+dotnet run -c Release --project spikes/S3.Metadata -- --server "(local)\SQL2025" --trust-server-certificate --all
 ```
 
 `sqlwc` exit codes: `0` no errors · `1` SQL errors reported · `2` invalid input (a path or pattern matched no file, or a file could not be read).

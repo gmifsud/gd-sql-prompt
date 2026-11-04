@@ -4,6 +4,7 @@
   </Folder>
   <Folder Name="/spikes/">
     <Project Path="spikes/S2.ParserRecovery/S2.ParserRecovery.csproj" />
+    <Project Path="spikes/S3.Metadata/S3.Metadata.csproj" />
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/SqlCompanion.Cli/SqlCompanion.Cli.csproj" />
