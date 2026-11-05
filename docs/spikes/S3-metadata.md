@@ -112,6 +112,10 @@ Real databases (20, names withheld; largest 8,454 objects / 37,734 columns):
 | F9 | Cold cost has a per-database floor of ≈ 90 ms independent of size (query compilation), so switching database pays it once | Cache per (server, database); never reload on database switch if the P2 token is unchanged |
 | F10 | Columns remain 66 % of the cold load on Windows | Confirms F3: publish objects first, columns second |
 
+Remote attempt (2026-11-05, SQL Server 2022 16.0.1210.3, SQL authentication): cancelled after 68 databases because
+the harness timed **every** database and lost the partial report on Ctrl+C. Fixed: the largest 10 by user-object
+count are timed by default, and cancellation writes the report. Re-run pending.
+
 ## Proposed Phase 2 budgets
 
 Working targets set from this evidence, not spec requirements. Local targets met on the developer machine (F8); remote pending.
@@ -130,7 +134,8 @@ Run from the repository root.
    ```powershell
    dotnet run -c Release --project spikes/S3.Metadata -- --server "(local)\SQL2025" --trust-server-certificate --all
    ```
-2. **Remote server, read-only.** No `--all`: nothing is created; only catalogue views are read.
+2. **Remote server, read-only.** No `--all`: nothing is created; only catalogue views are read. Only the 10 largest
+   databases are timed (`--max-databases N` to change); Ctrl+C still writes the report with what was measured.
    ```powershell
    $env:SQLCOMPANION_S3_PASSWORD = [System.Net.NetworkCredential]::new('', (Read-Host -AsSecureString 'Password')).Password
    dotnet run -c Release --project spikes/S3.Metadata -- --server "panama.isl.dom\release" --user eyeuser --trust-server-certificate --out artifacts/s3-remote

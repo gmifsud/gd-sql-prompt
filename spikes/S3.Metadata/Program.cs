@@ -12,7 +12,8 @@ using SqlCompanion.Spikes.S3;
 //   --ddl-check                 which schema changes each staleness probe detects (scratch database, dropped after)
 //   --synthetic                 build a 10k-object / 100k-column scratch database and time loads against it
 //   --tables N --columns M      synthetic shape (default 5000 x 20)
-//   --databases a,b             your databases to time (default: every online user database); --no-user-databases skips them
+//   --databases a,b             your databases to time (default: the largest online user databases); --no-user-databases skips them
+//   --max-databases N           how many of the largest databases to time when --databases is not given (default 10)
 //   --runs N                    warm repetitions per measurement (default 5)
 //   --user NAME                 SQL authentication; password from SQLCOMPANION_S3_PASSWORD (default: Windows authentication)
 //   --keep                      keep the scratch databases
@@ -22,7 +23,7 @@ Console.OutputEncoding = Encoding.UTF8;
 var options = Options.Parse(args);
 if (options is null)
 {
-    Console.Error.WriteLine("usage: S3.Metadata --server <name> [--trust-server-certificate] [--all | --ddl-check --synthetic] [--databases a,b | --no-user-databases] [--runs N] [--user NAME] [--keep] [--out DIR]");
+    Console.Error.WriteLine("usage: S3.Metadata --server <name> [--trust-server-certificate] [--all | --ddl-check --synthetic] [--databases a,b | --max-databases N | --no-user-databases] [--runs N] [--user NAME] [--keep] [--out DIR]");
     return 2;
 }
 
@@ -88,22 +89,50 @@ try
 
     if (options.UserDatabases)
     {
-        var names = options.Databases ?? await UserDatabasesAsync(master, token);
+        List<string> names;
+        if (options.Databases is not null)
+        {
+            names = [.. options.Databases];
+            report.DatabaseSelection = $"{names.Count} database(s) named on the command line";
+        }
+        else
+        {
+            // A shared server can hold dozens of databases: time the largest, which are also the useful stress cases.
+            var sized = await UserDatabasesBySizeAsync(master, token);
+            names = [.. sized.Take(options.MaxDatabases).Select(d => d.Name)];
+            report.DatabaseSelection = $"{names.Count} largest of {sized.Count} accessible user database(s), by user-object count";
+        }
+
+        Console.WriteLine($"Timing {report.DatabaseSelection}.");
         var index = 0;
-        foreach (var name in names.Order(StringComparer.OrdinalIgnoreCase))
+        foreach (var name in names)
         {
             var label = $"db{++index}";
-            Console.WriteLine($"Measuring {label}...");
+            var started = System.Diagnostics.Stopwatch.StartNew();
+            Console.Write($"Measuring {label} of {names.Count}... ");
             try
             {
-                report.UserDatabases.Add(await MeasureAsync(label, options.ConnectionString(name), Math.Min(options.Runs, 3), token));
+                var measurement = await MeasureAsync(label, options.ConnectionString(name), Math.Min(options.Runs, 3), token);
+                report.UserDatabases.Add(measurement);
+                Console.WriteLine($"{measurement.Objects:N0} objects, {started.Elapsed.TotalSeconds:0.0} s");
+            }
+            catch (SqlException) when (token.IsCancellationRequested)
+            {
+                throw new OperationCanceledException(token); // SqlClient reports Ctrl+C mid-query as SQL error 0
             }
             catch (SqlException exception)
             {
                 report.UserDatabases.Add(new Measurement(label) { Error = $"SQL error {exception.Number}" }); // message may contain names
+                Console.WriteLine($"SQL error {exception.Number}");
             }
         }
     }
+}
+catch (OperationCanceledException) when (token.IsCancellationRequested)
+{
+    Console.Error.WriteLine();
+    Console.Error.WriteLine("Cancelled: writing the partial report.");
+    report.Failure = $"cancelled (Ctrl+C) after {report.UserDatabases.Count} user database(s); results so far are below";
 }
 catch (Exception exception) // report any failure rather than crash without a report
 {
@@ -113,8 +142,8 @@ catch (Exception exception) // report any failure rather than crash without a re
 
 Directory.CreateDirectory(options.OutDir);
 var markdown = report.ToMarkdown();
-await File.WriteAllTextAsync(Path.Combine(options.OutDir, "s3-report.md"), markdown, token);
-await File.WriteAllTextAsync(Path.Combine(options.OutDir, "s3-report.json"), JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true, IncludeFields = true, NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowNamedFloatingPointLiterals }), token);
+await File.WriteAllTextAsync(Path.Combine(options.OutDir, "s3-report.md"), markdown, CancellationToken.None); // also after Ctrl+C
+await File.WriteAllTextAsync(Path.Combine(options.OutDir, "s3-report.json"), JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true, IncludeFields = true, NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowNamedFloatingPointLiterals }), CancellationToken.None);
 Console.WriteLine();
 Console.WriteLine(markdown);
 Console.WriteLine($"Report: {Path.Combine(options.OutDir, "s3-report.md")}");
@@ -155,26 +184,44 @@ static async Task<Measurement> MeasureAsync(string label, string connectionStrin
 static string SqlClientVersion() =>
     (System.Reflection.CustomAttributeExtensions.GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>(typeof(SqlConnection).Assembly)?.InformationalVersion ?? "?").Split('+')[0];
 
-static async Task<List<string>> UserDatabasesAsync(string master, CancellationToken token)
+/// <summary>Accessible online user databases, largest first by user-object count (one cheap count per database).</summary>
+static async Task<List<(string Name, long Objects)>> UserDatabasesBySizeAsync(string master, CancellationToken token)
 {
     await using var connection = new SqlConnection(master);
     await connection.OpenAsync(token);
-    await using var command = new SqlCommand(
-        "SELECT name FROM sys.databases WHERE database_id > 4 AND state = 0 AND user_access = 0 AND HAS_DBACCESS(name) = 1 AND name NOT LIKE N'SqlCompanion[_]S3[_]%';",
-        connection);
-    await using var reader = await command.ExecuteReaderAsync(token);
     var names = new List<string>();
-    while (await reader.ReadAsync(token))
+    await using (var command = new SqlCommand(
+        "SELECT name FROM sys.databases WHERE database_id > 4 AND state = 0 AND user_access = 0 AND HAS_DBACCESS(name) = 1 AND name NOT LIKE N'SqlCompanion[_]S3[_]%';",
+        connection))
+    await using (var reader = await command.ExecuteReaderAsync(token))
     {
-        names.Add(reader.GetString(0));
+        while (await reader.ReadAsync(token))
+        {
+            names.Add(reader.GetString(0));
+        }
     }
 
-    return names;
+    var sized = new List<(string, long)>();
+    foreach (var name in names)
+    {
+        try
+        {
+            await using var count = new SqlCommand(
+                $"SELECT COUNT_BIG(*) FROM {ScratchDatabase.Quote(name)}.sys.objects WHERE is_ms_shipped = 0;", connection) { CommandTimeout = 30 };
+            sized.Add((name, Convert.ToInt64(await count.ExecuteScalarAsync(token), CultureInfo.InvariantCulture)));
+        }
+        catch (SqlException)
+        {
+            // Not readable with this login: leave it out.
+        }
+    }
+
+    return [.. sized.OrderByDescending(d => d.Item2)];
 }
 
 internal sealed record Options(
     string Server, string? User, bool TrustServerCertificate, bool DdlCheck, bool Synthetic, int Tables, int Columns,
-    bool UserDatabases, IReadOnlyList<string>? Databases, int Runs, bool Keep, string OutDir)
+    bool UserDatabases, IReadOnlyList<string>? Databases, int MaxDatabases, int Runs, bool Keep, string OutDir)
 {
     public string ConnectionString(string database)
     {
@@ -227,6 +274,7 @@ internal sealed record Options(
             Math.Max(3, Number("--columns", 20)),
             !Flag("--no-user-databases"),
             Value("--databases")?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+            Number("--max-databases", 10),
             Number("--runs", 5),
             Flag("--keep"),
             Path.GetFullPath(Value("--out") ?? "artifacts/s3"));
@@ -259,6 +307,7 @@ internal sealed class Report
     public double SyntheticBuildSeconds { get; set; }
     public Measurement? Synthetic { get; set; }
     public List<Measurement> UserDatabases { get; } = [];
+    public string? DatabaseSelection { get; set; }
     public string? Failure { get; set; }
 
     public string ToMarkdown()
@@ -313,6 +362,11 @@ internal sealed class Report
         if (UserDatabases.Count > 0)
         {
             md.AppendLine().AppendLine("## Your databases (names omitted)").AppendLine();
+            if (DatabaseSelection is not null)
+            {
+                md.AppendLine($"Timed: {DatabaseSelection}.").AppendLine();
+            }
+
             AppendMeasurements(md, UserDatabases);
         }
 
