@@ -32,7 +32,7 @@ Status (2026-11-04):
 |---|---|---|
 | S1 SSMS host | **Complete — clean on SSMS 22** | All seven criteria met; ADR-0005 accepted (SSMS first). [S1 report](spikes/S1-ssms-host.md) |
 | S2 Parser | **Complete — target met** | 98.5–99.9 % context recovery; ADR-0002 confirmed. [S2 report](spikes/S2-parser-recovery.md) |
-| S3 Metadata | **Question answered** (sandbox); Windows local + remote run pending | `MAX(modify_date)` misses 6/19 schema changes; composite token P2 misses none at the same ≈ 7 ms. Full 13.5k-object / 110k-column load 726 ms cold, 258 ms warm (loopback). [S3 report](spikes/S3-metadata.md) |
+| S3 Metadata | **Answered; confirmed on Windows** (remote LAN run pending) | `MAX(modify_date)` misses 6/19 schema changes on both builds; composite token P2 misses none at ≤ 16 ms p95. Spec-scale load 1.1 s cold / 435 ms warm locally; 20 real databases 89–347 ms cold. [S3 report](spikes/S3-metadata.md) |
 | S4 Standalone UI | **Deferred to Phase 4** | Not needed for the SSMS-first Phase 3 (ADR-0005) |
 | S5 Auth / credentials | Not started | — |
 

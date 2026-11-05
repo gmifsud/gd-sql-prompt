@@ -57,6 +57,7 @@ Options: `Keywords` (upper / lower / preserve), `IndentSize`, `UseTabs`, `MaxLin
 |---|---|
 | Corpus: 1,432 scripts (public corpus + fixtures) | 1,251 reformatted, **0 refused** by verification |
 | Idempotence over the corpus (second pass) | **0** files change |
+| Developer's private scripts (34, not in the repository) | 34 reformatted, **0 refused** (2026-11-05) |
 | Unit tests | Golden layouts, every corpus fixture × every profile (safe + idempotent), 3,000 random token sequences, verification rejects corrupted layouts, edits reproduce the formatted text, range edits stay on selected lines |
 | Performance (BenchmarkDotNet, including verification) | 500 lines 3.4 ms · **5,000 lines 65 ms** (gate: < 2 s) · 45,000-line install script 1.8 s end to end via the CLI |
 | Lines over 120 columns in the corpus | 64,165 → 14,775 (remainder: long literals, comments and preserved statements) |

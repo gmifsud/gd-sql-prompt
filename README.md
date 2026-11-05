@@ -22,7 +22,7 @@ A T-SQL developer productivity platform — schema-aware completion, formatting,
 | Metadata | Contracts only (spike S3) |
 | Spike S1 (SSMS) | **Complete** — clean on SSMS 22; first surface is the SSMS adapter, SSMS 22+ ([evidence](docs/spikes/S1-ssms-host.md), [ADR-0005](docs/adr/0005-first-product-surface.md)) |
 | Spike S2 (parser) | Complete — target met |
-| Spike S3 (metadata) | Question answered: composite staleness token, full load < 1 s at spec scale ([report](docs/spikes/S3-metadata.md)); Windows run pending |
+| Spike S3 (metadata) | Answered and confirmed on Windows: composite staleness token, spec-scale load 1.1 s cold ([report](docs/spikes/S3-metadata.md)); remote run pending |
 | Spike S4 (standalone UI) | Deferred to Phase 4 (ADR-0005) |
 | Spike S5 (auth) | Not started |
 
